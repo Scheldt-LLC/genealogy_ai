@@ -5,6 +5,7 @@ from pathlib import Path
 from quart import Quart, jsonify, send_from_directory
 from quart_cors import cors
 
+from src.backend.api.chat import chat_bp
 from src.backend.api.documents import documents_bp
 from src.backend.api.upload import upload_bp
 from src.backend.config import get_config
@@ -41,6 +42,7 @@ def create_app(config_name: str = "development") -> Quart:
     # Register blueprints
     app.register_blueprint(upload_bp)
     app.register_blueprint(documents_bp)
+    app.register_blueprint(chat_bp)
 
     # Register routes
     register_routes(app)
@@ -78,7 +80,7 @@ def register_routes(app: Quart) -> None:
                     "info": "/api/info",
                     "upload": "/api/upload",
                     "documents": "/api/documents",
-                    "chat": "/api/chat (coming soon)",
+                    "chat": "/api/chat",
                     "tree": "/api/tree (coming soon)",
                 },
             }

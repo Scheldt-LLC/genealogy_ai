@@ -22,6 +22,36 @@
   font-size: 0.875rem;
 }
 
+.app-nav {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.nav-tab {
+  padding: 0.75rem 1.5rem;
+  background-color: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-tab:hover {
+  color: #333;
+}
+
+.nav-tab.active {
+  color: #646cff;
+  border-bottom-color: #646cff;
+}
+
 main {
-  padding: 2rem;
+  padding: 0;
+  min-height: calc(100vh - 120px);
 }

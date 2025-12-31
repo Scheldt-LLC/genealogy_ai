@@ -84,9 +84,8 @@ Download installer from [GitHub releases](https://github.com/UB-Mannheim/tessera
 **Development Mode** (with hot reload):
 
 ```bash
-# Terminal 1: Start the backend (Quart server on port 5001)
-cd src/backend
-uv run python app.py
+# Terminal 1: Start the backend (Hypercorn server on port 5001)
+uv run hypercorn src.backend.app:app --bind 0.0.0.0:5001 --reload
 
 # Terminal 2: Start the frontend (Vite dev server on port 5173)
 cd src/frontend
@@ -103,8 +102,7 @@ cd src/frontend
 npm run build
 
 # Start the backend (serves frontend + API on port 5001)
-cd ../backend
-uv run python app.py
+uv run hypercorn src.backend.app:app --bind 0.0.0.0:5001
 ```
 
 Then open your browser to `http://localhost:5001`

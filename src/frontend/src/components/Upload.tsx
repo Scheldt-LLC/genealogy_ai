@@ -11,9 +11,16 @@ interface Document {
 
 interface UploadResponse {
   success: boolean
-  document_id: number
+  document_ids: number[]
   filename: string
   page_count: number
+  entities_extracted: {
+    people: number
+    events: number
+    relationships: number
+  }
+  duplicates_merged: number
+  chunks_stored: number
   message: string
 }
 
@@ -87,7 +94,19 @@ export default function Upload() {
       const data: UploadResponse = await response.json()
 
       if (response.ok && data.success) {
-        setSuccess(`${data.filename} uploaded successfully!`)
+        const stats = []
+        stats.push(`${data.page_count} page${data.page_count !== 1 ? 's' : ''}`)
+        if (data.entities_extracted.people > 0) {
+          stats.push(`${data.entities_extracted.people} people`)
+        }
+        if (data.entities_extracted.events > 0) {
+          stats.push(`${data.entities_extracted.events} events`)
+        }
+        if (data.duplicates_merged > 0) {
+          stats.push(`${data.duplicates_merged} duplicate${data.duplicates_merged !== 1 ? 's' : ''} merged`)
+        }
+
+        setSuccess(`${data.filename} processed successfully! (${stats.join(', ')})`)
         // Refresh document list
         await fetchDocuments()
       } else {
@@ -126,7 +145,13 @@ export default function Upload() {
         />
         <div className="upload-content">
           {uploading ? (
-            <p>Uploading and processing...</p>
+            <>
+              <p className="upload-icon">⚙️</p>
+              <p>Processing document...</p>
+              <p className="upload-hint">
+                Running OCR, extracting entities, and building family tree
+              </p>
+            </>
           ) : (
             <>
               <p className="upload-icon">📁</p>

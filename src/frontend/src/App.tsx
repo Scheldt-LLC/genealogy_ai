@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import Upload from './components/Upload'
+import Chat from './components/Chat'
 
 interface HealthResponse {
   status: string
@@ -8,9 +9,12 @@ interface HealthResponse {
   version: string
 }
 
+type Tab = 'upload' | 'chat'
+
 function App() {
   const [apiStatus, setApiStatus] = useState<HealthResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<Tab>('upload')
 
   useEffect(() => {
     // Test API connection
@@ -37,8 +41,24 @@ function App() {
         </div>
       </header>
 
+      <nav className="app-nav">
+        <button
+          className={`nav-tab ${activeTab === 'upload' ? 'active' : ''}`}
+          onClick={() => setActiveTab('upload')}
+        >
+          Upload Documents
+        </button>
+        <button
+          className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`}
+          onClick={() => setActiveTab('chat')}
+        >
+          Chat
+        </button>
+      </nav>
+
       <main>
-        <Upload />
+        {activeTab === 'upload' && <Upload />}
+        {activeTab === 'chat' && <Chat />}
       </main>
     </>
   )

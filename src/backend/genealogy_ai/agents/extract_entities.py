@@ -27,8 +27,8 @@ class EntityExtractor:
         self.model_name = model_name or settings.openai_model
         self.temperature = temperature
 
-        # Load extraction prompt
-        prompt_path = Path(__file__).parent.parent.parent / "prompts" / "extraction.md"
+        # Load extraction prompt from genealogy_ai/prompts/
+        prompt_path = Path(__file__).parent.parent / "prompts" / "extraction.md"
         with open(prompt_path) as f:
             self.system_prompt = f.read()
 
