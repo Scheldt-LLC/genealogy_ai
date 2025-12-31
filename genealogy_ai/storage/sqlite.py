@@ -46,6 +46,7 @@ class Person(Base):
     primary_name = Column(String, nullable=False)
     notes = Column(Text)
     confidence = Column(Float)
+    source_document_id = Column(Integer, ForeignKey("documents.id"))
     created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
 
     # Relationships
@@ -106,6 +107,7 @@ class Relationship(Base):
     relationship_type = Column(String, nullable=False)  # parent, spouse, child, etc.
     confidence = Column(Float)
     notes = Column(Text)
+    source_document_id = Column(Integer, ForeignKey("documents.id"))
 
     def __repr__(self) -> str:
         return (
@@ -134,19 +136,51 @@ class GenealogyDatabase:
         """Get a new database session."""
         return self.Session()
 
-    def add_document(self, source: str, page: int, ocr_text: str) -> Document:
+    def get_document_by_source(self, source: str, page: int | None = None) -> Document | None:
+        """Get a document by source path and optional page number.
+
+        Args:
+            source: Path to source document
+            page: Optional page number
+
+        Returns:
+            Document object if found, None otherwise
+        """
+        session = self.get_session()
+        try:
+            query = session.query(Document).filter(Document.source == source)
+            if page is not None:
+                query = query.filter(Document.page == page)
+            return query.first()
+        finally:
+            session.close()
+
+    def add_document(
+        self, source: str, page: int, ocr_text: str, skip_if_exists: bool = True
+    ) -> Document | None:
         """Add a document record.
 
         Args:
             source: Path to source document
             page: Page number
             ocr_text: Extracted OCR text
+            skip_if_exists: If True, skip adding if document already exists
 
         Returns:
-            Created Document object
+            Created Document object, or existing document if skip_if_exists=True, or None if skipped
         """
         session = self.get_session()
         try:
+            # Check if document already exists
+            if skip_if_exists:
+                existing = (
+                    session.query(Document)
+                    .filter(Document.source == source, Document.page == page)
+                    .first()
+                )
+                if existing:
+                    return existing
+
             doc = Document(source=source, page=page, ocr_text=ocr_text)
             session.add(doc)
             session.commit()
@@ -156,7 +190,11 @@ class GenealogyDatabase:
             session.close()
 
     def add_person(
-        self, primary_name: str, notes: str | None = None, confidence: float | None = None
+        self,
+        primary_name: str,
+        notes: str | None = None,
+        confidence: float | None = None,
+        source_document_id: int | None = None,
     ) -> Person:
         """Add a person record.
 
@@ -164,13 +202,19 @@ class GenealogyDatabase:
             primary_name: Primary name for the person
             notes: Optional notes
             confidence: Confidence score (0-1)
+            source_document_id: Source document ID for citation
 
         Returns:
             Created Person object
         """
         session = self.get_session()
         try:
-            person = Person(primary_name=primary_name, notes=notes, confidence=confidence)
+            person = Person(
+                primary_name=primary_name,
+                notes=notes,
+                confidence=confidence,
+                source_document_id=source_document_id,
+            )
             session.add(person)
             session.commit()
             session.refresh(person)
@@ -257,6 +301,7 @@ class GenealogyDatabase:
         relationship_type: str,
         confidence: float | None = None,
         notes: str | None = None,
+        source_document_id: int | None = None,
     ) -> Relationship:
         """Add a relationship between two people.
 
@@ -266,6 +311,7 @@ class GenealogyDatabase:
             relationship_type: Type of relationship
             confidence: Confidence score (0-1)
             notes: Optional notes
+            source_document_id: Source document ID for citation
 
         Returns:
             Created Relationship object
@@ -278,6 +324,7 @@ class GenealogyDatabase:
                 relationship_type=relationship_type,
                 confidence=confidence,
                 notes=notes,
+                source_document_id=source_document_id,
             )
             session.add(rel)
             session.commit()
@@ -311,6 +358,177 @@ class GenealogyDatabase:
                     people.append(name_obj.person)
 
             return people
+        finally:
+            session.close()
+
+    def store_extraction(
+        self, extraction_result: "ExtractionResult", document_id: int
+    ) -> dict[str, int]:
+        """Store extracted entities from a document.
+
+        Args:
+            extraction_result: ExtractionResult object with people, events, relationships
+            document_id: ID of the source document
+
+        Returns:
+            Dictionary with counts of stored entities
+        """
+        from genealogy_ai.schemas import ExtractionResult
+
+        people_count = 0
+        events_count = 0
+        relationships_count = 0
+        name_to_person_id: dict[str, int] = {}
+
+        # First pass: Create people and store name mappings
+        for person_data in extraction_result.people:
+            # Check if person already exists
+            existing = self.get_person_by_name(person_data.primary_name)
+            if existing:
+                # Person might already exist - for now, create anyway
+                # (reconciliation will be Phase 2)
+                pass
+
+            # Create person
+            person = self.add_person(
+                primary_name=person_data.primary_name,
+                confidence=person_data.confidence,
+                notes=person_data.notes,
+                source_document_id=document_id,
+            )
+            people_count += 1
+            name_to_person_id[person_data.primary_name] = person.id
+
+            # Add name variants
+            for variant in person_data.name_variants:
+                self.add_name(person.id, variant)
+
+        # Second pass: Create events
+        for event_data in extraction_result.events:
+            # Find person by name
+            person_id = name_to_person_id.get(event_data.person_name)
+            if not person_id:
+                # Try to find existing person
+                existing = self.get_person_by_name(event_data.person_name)
+                if existing:
+                    person_id = existing[0].id
+                else:
+                    # Create person if not found
+                    person = self.add_person(
+                        primary_name=event_data.person_name,
+                        confidence=0.7,
+                        source_document_id=document_id,
+                    )
+                    person_id = person.id
+                    name_to_person_id[event_data.person_name] = person_id
+
+            # Create event
+            self.add_event(
+                person_id=person_id,
+                event_type=event_data.event_type,
+                date=event_data.date,
+                place=event_data.place,
+                confidence=event_data.confidence,
+                description=event_data.notes,
+                source_document_id=document_id,
+            )
+            events_count += 1
+
+        # Third pass: Create relationships
+        for rel_data in extraction_result.relationships:
+            # Find both people
+            person1_id = name_to_person_id.get(rel_data.person1)
+            person2_id = name_to_person_id.get(rel_data.person2)
+
+            if not person1_id:
+                existing = self.get_person_by_name(rel_data.person1)
+                if existing:
+                    person1_id = existing[0].id
+                else:
+                    person = self.add_person(
+                        primary_name=rel_data.person1,
+                        confidence=0.7,
+                        source_document_id=document_id,
+                    )
+                    person1_id = person.id
+
+            if not person2_id:
+                existing = self.get_person_by_name(rel_data.person2)
+                if existing:
+                    person2_id = existing[0].id
+                else:
+                    person = self.add_person(
+                        primary_name=rel_data.person2,
+                        confidence=0.7,
+                        source_document_id=document_id,
+                    )
+                    person2_id = person.id
+
+            # Create relationship
+            self.add_relationship(
+                source_person_id=person1_id,
+                target_person_id=person2_id,
+                relationship_type=rel_data.relationship_type,
+                confidence=rel_data.confidence,
+                notes=rel_data.notes,
+                source_document_id=document_id,
+            )
+            relationships_count += 1
+
+        return {
+            "people": people_count,
+            "events": events_count,
+            "relationships": relationships_count,
+        }
+
+    def merge_people(self, keep_id: int, merge_id: int) -> None:
+        """Merge two people records, keeping one and removing the other.
+
+        Args:
+            keep_id: ID of person to keep
+            merge_id: ID of person to merge into keep_id (will be deleted)
+        """
+        session = self.get_session()
+        try:
+            # Get both people
+            keep_person = session.query(Person).filter(Person.id == keep_id).first()
+            merge_person = session.query(Person).filter(Person.id == merge_id).first()
+
+            if not keep_person or not merge_person:
+                raise ValueError("One or both people not found")
+
+            # Merge alternate names
+            for name in merge_person.names:
+                # Only add if not already present
+                existing_names = {n.name.lower() for n in keep_person.names}
+                existing_names.add(keep_person.primary_name.lower())
+                if name.name.lower() not in existing_names:
+                    self.add_name(keep_id, name.name)
+
+            # Update all events to point to kept person
+            session.query(Event).filter(Event.person_id == merge_id).update(
+                {"person_id": keep_id}
+            )
+
+            # Update all relationships
+            session.query(Relationship).filter(
+                Relationship.source_person_id == merge_id
+            ).update({"source_person_id": keep_id})
+
+            session.query(Relationship).filter(
+                Relationship.target_person_id == merge_id
+            ).update({"target_person_id": keep_id})
+
+            # Delete the merged person's alternate names
+            session.query(Name).filter(Name.person_id == merge_id).delete()
+
+            # Delete the merged person
+            session.delete(merge_person)
+
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
         finally:
             session.close()
 

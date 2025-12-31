@@ -166,6 +166,10 @@ ocr_output/
 *.sqlite
 *.sqlite3
 
+# Export files (may contain personal data)
+*.ged
+*.gedcom
+
 # Vector DB
 chroma_db/
 .chroma/

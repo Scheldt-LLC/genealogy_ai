@@ -112,20 +112,21 @@ geneai tree --person "John Byrne"
 
 5. **Export Data**
 ```bash
-geneai export --format gedcom --output family_tree.ged
+geneai export family_tree.ged
 ```
 
 ### CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `geneai ingest <files>` | Import scanned documents |
-| `geneai extract` | Extract entities from ingested documents |
-| `geneai reconcile` | Find and merge duplicate people |
+| `geneai ingest <files> --recursive` | Import scanned documents (recursively process directories) |
+| `geneai extract` | Extract entities from ingested documents using AI |
+| `geneai reconcile` | Find and merge duplicate people with human approval |
 | `geneai tree --person <name>` | Display family tree for a person |
 | `geneai search <query>` | Semantic search across documents |
-| `geneai export` | Export data in various formats |
-| `geneai review` | Review pending AI suggestions |
+| `geneai export <output.ged>` | Export data to GEDCOM format |
+| `geneai stats` | Show database statistics |
+| `geneai version` | Display version information |
 
 ## Architecture
 
@@ -272,12 +273,14 @@ genealogy-ai/
 
 ## Roadmap
 
-### Phase 1: MVP (Current)
+### Phase 1: MVP ✅ Complete
 - [x] Project setup
-- [ ] OCR ingestion
-- [ ] Entity extraction
-- [ ] SQLite storage
-- [ ] Basic CLI
+- [x] OCR ingestion (Tesseract, multi-format support)
+- [x] Entity extraction (LLM-powered with confidence scoring)
+- [x] SQLite storage (with citation tracking)
+- [x] ChromaDB vector storage
+- [x] Reconciliation agent (fuzzy matching with human approval)
+- [x] Complete CLI (ingest, extract, reconcile, tree, export, search, stats)
 
 ### Phase 2: Accuracy
 - [ ] Confidence thresholds
