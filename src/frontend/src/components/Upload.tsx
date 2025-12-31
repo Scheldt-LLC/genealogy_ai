@@ -24,6 +24,12 @@ interface UploadResponse {
   message: string
 }
 
+interface FileProgress {
+  name: string
+  status: 'pending' | 'uploading' | 'success' | 'error'
+  message?: string
+}
+
 export default function Upload() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [uploading, setUploading] = useState(false)
@@ -31,6 +37,7 @@ export default function Upload() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<number | null>(null)
+  const [uploadQueue, setUploadQueue] = useState<FileProgress[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchDocuments = async () => {
@@ -78,46 +85,105 @@ export default function Upload() {
   }
 
   const handleFiles = async (files: FileList) => {
-    const file = files[0]
+    const fileArray = Array.from(files)
+
+    if (fileArray.length === 0) return
+
     setError(null)
     setSuccess(null)
     setUploading(true)
 
-    const formData = new FormData()
-    formData.append('file', file)
+    // Initialize progress tracking for all files
+    const initialProgress: FileProgress[] = fileArray.map(file => ({
+      name: file.name,
+      status: 'pending',
+    }))
+    setUploadQueue(initialProgress)
 
-    try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
+    let successCount = 0
+    let errorCount = 0
 
-      const data: UploadResponse = await response.json()
+    // Process files sequentially to avoid overwhelming the server
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i]
 
-      if (response.ok && data.success) {
-        const stats = []
-        stats.push(`${data.page_count} page${data.page_count !== 1 ? 's' : ''}`)
-        if (data.entities_extracted.people > 0) {
-          stats.push(`${data.entities_extracted.people} people`)
+      // Update status to uploading
+      setUploadQueue(prev => prev.map((item, idx) =>
+        idx === i ? { ...item, status: 'uploading' } : item
+      ))
+
+      const formData = new FormData()
+      formData.append('file', file)
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        const data: UploadResponse = await response.json()
+
+        if (response.ok && data.success) {
+          const stats = []
+          stats.push(`${data.page_count} page${data.page_count !== 1 ? 's' : ''}`)
+          if (data.entities_extracted.people > 0) {
+            stats.push(`${data.entities_extracted.people} people`)
+          }
+          if (data.entities_extracted.events > 0) {
+            stats.push(`${data.entities_extracted.events} events`)
+          }
+          if (data.duplicates_merged > 0) {
+            stats.push(`${data.duplicates_merged} duplicate${data.duplicates_merged !== 1 ? 's' : ''} merged`)
+          }
+
+          // Update status to success
+          setUploadQueue(prev => prev.map((item, idx) =>
+            idx === i ? {
+              ...item,
+              status: 'success',
+              message: stats.join(', ')
+            } : item
+          ))
+          successCount++
+        } else {
+          // Update status to error
+          setUploadQueue(prev => prev.map((item, idx) =>
+            idx === i ? {
+              ...item,
+              status: 'error',
+              message: (data as any).error || 'Upload failed'
+            } : item
+          ))
+          errorCount++
         }
-        if (data.entities_extracted.events > 0) {
-          stats.push(`${data.entities_extracted.events} events`)
-        }
-        if (data.duplicates_merged > 0) {
-          stats.push(`${data.duplicates_merged} duplicate${data.duplicates_merged !== 1 ? 's' : ''} merged`)
-        }
-
-        setSuccess(`${data.filename} processed successfully! (${stats.join(', ')})`)
-        // Refresh document list
-        await fetchDocuments()
-      } else {
-        setError((data as any).error || 'Upload failed')
+      } catch (err) {
+        // Update status to error
+        setUploadQueue(prev => prev.map((item, idx) =>
+          idx === i ? {
+            ...item,
+            status: 'error',
+            message: (err as Error).message
+          } : item
+        ))
+        errorCount++
       }
-    } catch (err) {
-      setError('Failed to upload file: ' + (err as Error).message)
-    } finally {
-      setUploading(false)
     }
+
+    // Refresh document list after all uploads
+    await fetchDocuments()
+    setUploading(false)
+
+    // Set final success/error message
+    if (errorCount === 0) {
+      setSuccess(`Successfully uploaded ${successCount} file${successCount !== 1 ? 's' : ''}!`)
+    } else if (successCount === 0) {
+      setError(`Failed to upload all ${errorCount} file${errorCount !== 1 ? 's' : ''}`)
+    } else {
+      setSuccess(`Uploaded ${successCount} file${successCount !== 1 ? 's' : ''}, ${errorCount} failed`)
+    }
+
+    // Clear queue after a delay
+    setTimeout(() => setUploadQueue([]), 5000)
   }
 
   const onButtonClick = () => {
@@ -206,6 +272,7 @@ export default function Upload() {
           className="file-input"
           onChange={handleChange}
           accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.txt"
+          multiple
         />
         <div className="upload-content">
           {uploading ? (
@@ -219,14 +286,39 @@ export default function Upload() {
           ) : (
             <>
               <p className="upload-icon">📁</p>
-              <p>Drag and drop a file here, or click to select</p>
+              <p>Drag and drop files here, or click to select</p>
               <p className="upload-hint">
-                Supported: PDF, PNG, JPG, TIFF, BMP, TXT
+                Supported: PDF, PNG, JPG, TIFF, BMP, TXT • Multiple files OK
               </p>
             </>
           )}
         </div>
       </div>
+
+      {/* Upload Queue Progress */}
+      {uploadQueue.length > 0 && (
+        <div className="upload-queue">
+          <h4>Upload Progress</h4>
+          <div className="queue-list">
+            {uploadQueue.map((file, idx) => (
+              <div key={idx} className={`queue-item queue-item-${file.status}`}>
+                <div className="queue-icon">
+                  {file.status === 'pending' && '⏳'}
+                  {file.status === 'uploading' && '⚙️'}
+                  {file.status === 'success' && '✅'}
+                  {file.status === 'error' && '❌'}
+                </div>
+                <div className="queue-info">
+                  <div className="queue-filename">{file.name}</div>
+                  {file.message && (
+                    <div className="queue-message">{file.message}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Status Messages */}
       {error && (

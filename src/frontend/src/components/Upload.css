@@ -45,6 +45,81 @@
   margin-top: 0.5rem;
 }
 
+.upload-queue {
+  background-color: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.upload-queue h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background-color: white;
+  border-radius: 4px;
+  border-left: 3px solid transparent;
+}
+
+.queue-item-pending {
+  border-left-color: #ccc;
+}
+
+.queue-item-uploading {
+  border-left-color: #646cff;
+  background-color: #f0f0ff;
+}
+
+.queue-item-success {
+  border-left-color: #4caf50;
+}
+
+.queue-item-error {
+  border-left-color: #f44336;
+  background-color: #fff5f5;
+}
+
+.queue-icon {
+  font-size: 1.25rem;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.queue-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.queue-filename {
+  font-weight: 600;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-message {
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
 .message {
   padding: 1rem;
   border-radius: 4px;
