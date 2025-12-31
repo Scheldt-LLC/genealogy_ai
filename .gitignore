@@ -141,7 +141,9 @@ cython_debug/
 
 # IDEs
 .idea/
-.vscode/
+.vscode/*.json
+!.vscode/settings.json
+!.vscode/extensions.json
 *.swp
 *.swo
 *~
@@ -150,8 +152,9 @@ cython_debug/
 # Project-specific
 # Data directories
 data/
-scans/
+originals/
 output/
+ocr_output/
 *.pdf
 *.jpg
 *.jpeg

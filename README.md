@@ -1,6 +1,6 @@
 # Genealogy AI
-
 Extract genealogical information from historical documents using OCR and LLMs.
+
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -20,7 +20,8 @@ Genealogy AI ingests scanned historical family documents (typed, handwritten, ph
 
 ## Features
 
-- **Multi-Format OCR**: Process PDFs and images (JPEG, PNG, TIFF)
+- **Multi-Format Support**: Process PDFs, images (JPEG, PNG, TIFF, BMP), and plain text files
+- **Recursive Ingestion**: Automatically process entire directory trees of documents
 - **Handwriting Support**: Optional PaddleOCR for handwritten documents
 - **Entity Extraction**: Automatically extract people, dates, places, and relationships
 - **Smart Reconciliation**: Detect possible duplicates with confidence scoring
@@ -81,9 +82,18 @@ Download installer from [GitHub releases](https://github.com/UB-Mannheim/tessera
 ### Basic Workflow
 
 1. **Ingest Documents**
+
+Place your original documents in the `originals/` directory (organized in subdirectories if desired), then run:
+
 ```bash
-geneai ingest scans/*.pdf
+# Recursively ingest all supported files in originals/ directory
+geneai ingest originals/ --recursive
+
+# Or ingest specific files/patterns
+geneai ingest originals/*.pdf originals/*.jpg
 ```
+
+Supported file types: `.pdf`, `.png`, `.jpg`, `.jpeg`, `.tiff`, `.tif`, `.bmp`, `.txt`
 
 2. **Extract Entities**
 ```bash
@@ -140,7 +150,7 @@ Parallel: Text → Embeddings → Vector DB (ChromaDB)
 ### Data Storage
 
 1. **Ground Truth (Immutable)**
-   - Original scans stored on disk
+   - Original documents stored on disk
    - OCR JSON output preserved
 
 2. **Structured Database (SQLite)**

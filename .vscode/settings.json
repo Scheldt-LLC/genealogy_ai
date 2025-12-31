@@ -1,0 +1,49 @@
+{
+  // Use ruff as the primary linter and formatter
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    },
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+
+  // Ruff extension settings
+  "ruff.enable": true,
+  "ruff.organizeImports": true,
+  "ruff.fixAll": true,
+
+  // Disable other Python linters/formatters to avoid conflicts
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": false,
+  "python.linting.pylintEnabled": false,
+  "python.linting.mypyEnabled": false,
+  "python.linting.banditEnabled": false,
+  "python.linting.prospectorEnabled": false,
+  "python.linting.pydocstyleEnabled": false,
+  "python.linting.pylamaEnabled": false,
+  "python.formatting.provider": "none",
+
+  // Type checking
+  "python.analysis.typeCheckingMode": "basic",
+
+  // Disable Pylance diagnostics that overlap with Ruff
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportLineTooLong": "none"
+  },
+
+  // Disable TOML schema validation (Ruff config is correct, extension schema is outdated)
+  "evenBetterToml.schema.enabled": false,
+
+  // Exclude directories from file watching
+  "files.watcherExclude": {
+    "**/.venv/**": true,
+    "**/data/**": true,
+    "**/chroma_db/**": true,
+    "**/__pycache__/**": true,
+    "**/.pytest_cache/**": true,
+    "**/.mypy_cache/**": true,
+    "**/.ruff_cache/**": true
+  }
+}
