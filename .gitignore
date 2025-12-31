@@ -170,6 +170,9 @@ ocr_output/
 *.ged
 *.gedcom
 
+# Frontend build output
+src/backend/static/
+
 # Vector DB
 chroma_db/
 .chroma/

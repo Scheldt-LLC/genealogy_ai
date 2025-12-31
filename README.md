@@ -81,7 +81,7 @@ Download installer from [GitHub releases](https://github.com/UB-Mannheim/tessera
 
 ### Web Application
 
-Start the backend and frontend servers:
+**Development Mode** (with hot reload):
 
 ```bash
 # Terminal 1: Start the backend (Quart server on port 5001)
@@ -94,6 +94,20 @@ npm run dev
 ```
 
 Then open your browser to `http://localhost:5173`
+
+**Production Mode** (single server):
+
+```bash
+# Build the frontend
+cd src/frontend
+npm run build
+
+# Start the backend (serves frontend + API on port 5001)
+cd ../backend
+uv run python app.py
+```
+
+Then open your browser to `http://localhost:5001`
 
 ### CLI Workflow
 
