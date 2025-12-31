@@ -10,8 +10,8 @@ from pathlib import Path
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from genealogy_ai.config import settings
-from genealogy_ai.schemas import ExtractionResult
+from src.backend.genealogy_ai.config import settings
+from src.backend.genealogy_ai.schemas import ExtractionResult
 
 
 class EntityExtractor:

@@ -1,7 +1,7 @@
 """Storage module for databases and vector stores."""
 
-from genealogy_ai.storage.chroma import ChromaStore
-from genealogy_ai.storage.sqlite import (
+from src.backend.genealogy_ai.storage.chroma import ChromaStore
+from src.backend.genealogy_ai.storage.sqlite import (
     Document,
     Event,
     GenealogyDatabase,

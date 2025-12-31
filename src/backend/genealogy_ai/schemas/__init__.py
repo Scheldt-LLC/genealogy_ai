@@ -1,6 +1,6 @@
 """Pydantic schemas for genealogical entities."""
 
-from genealogy_ai.schemas.extraction import (
+from src.backend.genealogy_ai.schemas.extraction import (
     EventExtraction,
     ExtractionResult,
     PersonExtraction,

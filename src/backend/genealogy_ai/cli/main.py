@@ -10,10 +10,10 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from genealogy_ai.ingestion.chunking import DocumentChunker
-from genealogy_ai.ingestion.ocr import OCRProcessor
-from genealogy_ai.storage.chroma import ChromaStore
-from genealogy_ai.storage.sqlite import GenealogyDatabase
+from src.backend.genealogy_ai.ingestion.chunking import DocumentChunker
+from src.backend.genealogy_ai.ingestion.ocr import OCRProcessor
+from src.backend.genealogy_ai.storage.chroma import ChromaStore
+from src.backend.genealogy_ai.storage.sqlite import GenealogyDatabase
 
 app = typer.Typer(
     name="geneai",
@@ -233,13 +233,13 @@ def extract(
 
     Requires: OPENAI_API_KEY in .env file
     """
-    from genealogy_ai.agents.extract_entities import EntityExtractor
+    from src.backend.genealogy_ai.agents.extract_entities import EntityExtractor
 
     console.print("\n[bold cyan]Genealogy AI - Entity Extraction[/bold cyan]\n")
 
     # Check for API key
     try:
-        from genealogy_ai.config import settings
+        from src.backend.genealogy_ai.config import settings
 
         settings.get_api_key()
     except ValueError as e:
@@ -257,7 +257,7 @@ def extract(
     # Get all documents from database
     session = db.get_session()
     try:
-        from genealogy_ai.storage.sqlite import Document
+        from src.backend.genealogy_ai.storage.sqlite import Document
 
         query = session.query(Document)
         if limit:
@@ -339,7 +339,10 @@ def extract(
 def reconcile(
     db_path: Path = typer.Option(Path("./genealogy.db"), "--db", help="Path to SQLite database"),
     auto_approve: bool = typer.Option(
-        False, "--auto-approve", help="Automatically approve high-confidence matches (>0.95)"
+        False, "--auto-approve", help="Automatically approve matches above threshold"
+    ),
+    auto_threshold: float = typer.Option(
+        1.0, "--auto-threshold", help="Confidence threshold for auto-approval (0.0-1.0, default: 1.0)"
     ),
     min_confidence: float = typer.Option(
         0.6, "--min-confidence", help="Minimum confidence score to show (0.0-1.0)"
@@ -352,9 +355,10 @@ def reconcile(
     - Birth/death date comparison
     - Birth/death place comparison
 
-    You'll be prompted to approve each merge before it happens.
+    By default, you'll be prompted to approve each merge. Use --auto-approve to
+    automatically merge matches at or above the threshold (default: 1.0 = 100% match only).
     """
-    from genealogy_ai.agents.reconcile_people import ReconciliationAgent
+    from src.backend.genealogy_ai.agents.reconcile_people import ReconciliationAgent
 
     console.print("\n[bold cyan]Genealogy AI - Duplicate Reconciliation[/bold cyan]\n")
 
@@ -373,6 +377,7 @@ def reconcile(
 
     # Display and process each candidate
     merged_count = 0
+    auto_merged_count = 0
     skipped_count = 0
 
     for i, candidate in enumerate(candidates, 1):
@@ -382,9 +387,10 @@ def reconcile(
         console.print(f"  Confidence: [yellow]{candidate.confidence:.2%}[/yellow]")
         console.print(f"  Reasons: {', '.join(candidate.reasons)}")
 
-        # Auto-approve very high confidence matches if enabled
-        if auto_approve and candidate.confidence >= 0.95:
-            console.print("  [green]Auto-approving (high confidence)...[/green]")
+        # Auto-approve matches at or above threshold if enabled
+        is_auto_approved = auto_approve and candidate.confidence >= auto_threshold
+        if is_auto_approved:
+            console.print(f"  [green]Auto-approving (confidence {candidate.confidence:.2%} >= {auto_threshold:.2%})...[/green]")
             approve = True
         else:
             # Ask user
@@ -397,6 +403,8 @@ def reconcile(
                 )
                 console.print(f"  [bold green]✓ Merged into {candidate.person1_name}[/bold green]")
                 merged_count += 1
+                if is_auto_approved:
+                    auto_merged_count += 1
             except Exception as e:
                 console.print(f"  [bold red]✗ Error: {e!s}[/bold red]")
         else:
@@ -412,6 +420,9 @@ def reconcile(
 
     table.add_row("Duplicates Found", str(len(candidates)))
     table.add_row("Merged", str(merged_count))
+    if auto_approve:
+        table.add_row("  └─ Auto-merged", str(auto_merged_count))
+        table.add_row("  └─ Manually merged", str(merged_count - auto_merged_count))
     table.add_row("Skipped", str(skipped_count))
     table.add_row("Database Path", str(db_path.absolute()))
 
@@ -430,7 +441,7 @@ def tree(
     """
     from rich.tree import Tree
 
-    from genealogy_ai.storage.sqlite import Document, Event, Person, Relationship
+    from src.backend.genealogy_ai.storage.sqlite import Document, Event, Person, Relationship
 
     console.print(f"\n[bold cyan]Family Tree for:[/bold cyan] {person}\n")
 
@@ -554,7 +565,7 @@ def export(
 
     console.print(f"\n[bold cyan]Exporting to GEDCOM:[/bold cyan] {output}\n")
 
-    from genealogy_ai.storage.sqlite import Event, Person, Relationship
+    from src.backend.genealogy_ai.storage.sqlite import Event, Person, Relationship
 
     db = GenealogyDatabase(db_path=db_path)
     session = db.get_session()

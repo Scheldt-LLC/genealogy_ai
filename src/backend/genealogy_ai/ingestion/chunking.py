@@ -10,7 +10,7 @@ from typing import Any
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from genealogy_ai.ingestion.ocr import OCRResult
+from src.backend.genealogy_ai.ingestion.ocr import OCRResult
 
 
 @dataclass

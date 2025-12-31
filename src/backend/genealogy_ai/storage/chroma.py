@@ -12,7 +12,7 @@ from chromadb.config import Settings
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from genealogy_ai.ingestion.chunking import TextChunk
+from src.backend.genealogy_ai.ingestion.chunking import TextChunk
 
 
 class ChromaStore:

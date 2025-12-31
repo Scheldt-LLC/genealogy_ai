@@ -10,7 +10,7 @@ from typing import Any
 from rapidfuzz import fuzz
 from sqlalchemy.orm import Session
 
-from genealogy_ai.storage.sqlite import Event, GenealogyDatabase, Name, Person
+from src.backend.genealogy_ai.storage.sqlite import Event, GenealogyDatabase, Name, Person
 
 
 @dataclass

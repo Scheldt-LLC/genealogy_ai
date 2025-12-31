@@ -373,7 +373,7 @@ class GenealogyDatabase:
         Returns:
             Dictionary with counts of stored entities
         """
-        from genealogy_ai.schemas import ExtractionResult
+        from src.backend.genealogy_ai.schemas import ExtractionResult
 
         people_count = 0
         events_count = 0

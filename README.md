@@ -79,7 +79,23 @@ Download installer from [GitHub releases](https://github.com/UB-Mannheim/tessera
 
 ## Usage
 
-### Basic Workflow
+### Web Application
+
+Start the backend and frontend servers:
+
+```bash
+# Terminal 1: Start the backend (Quart server on port 5001)
+cd src/backend
+uv run python app.py
+
+# Terminal 2: Start the frontend (Vite dev server on port 5173)
+cd src/frontend
+npm run dev
+```
+
+Then open your browser to `http://localhost:5173`
+
+### CLI Workflow
 
 1. **Ingest Documents**
 
@@ -102,7 +118,14 @@ geneai extract
 
 3. **Reconcile Duplicates**
 ```bash
+# Interactive reconciliation
 geneai reconcile
+
+# Auto-approve exact matches (100%)
+geneai reconcile --auto-approve --auto-threshold 1.0
+
+# Auto-approve matches above 95%
+geneai reconcile --auto-approve --auto-threshold 0.95
 ```
 
 4. **Query Family Tree**
@@ -121,7 +144,7 @@ geneai export family_tree.ged
 |---------|-------------|
 | `geneai ingest <files> --recursive` | Import scanned documents (recursively process directories) |
 | `geneai extract` | Extract entities from ingested documents using AI |
-| `geneai reconcile` | Find and merge duplicate people with human approval |
+| `geneai reconcile [--auto-approve] [--auto-threshold 0.95]` | Find and merge duplicate people with human approval |
 | `geneai tree --person <name>` | Display family tree for a person |
 | `geneai search <query>` | Semantic search across documents |
 | `geneai export <output.ged>` | Export data to GEDCOM format |
@@ -256,19 +279,27 @@ pytest --cov=genealogy_ai
 
 ```
 genealogy-ai/
-├── genealogy_ai/          # Main package
-│   ├── ingestion/         # OCR and document processing
-│   ├── agents/            # LLM agents (extraction, reconciliation)
-│   ├── storage/           # Database interfaces
-│   ├── schemas/           # Data models and validation
-│   ├── prompts/           # LLM prompt templates
-│   └── cli/               # Command-line interface
-├── tests/                 # Test suite
-│   ├── unit/             # Unit tests
-│   └── integration/      # Integration tests
-├── docs/                  # Documentation
-├── examples/              # Example configurations and scripts
-└── data/                  # Generated data (not in git)
+├── src/
+│   ├── backend/
+│   │   ├── genealogy_ai/      # Main package
+│   │   │   ├── ingestion/     # OCR and document processing
+│   │   │   ├── agents/        # LLM agents (extraction, reconciliation)
+│   │   │   ├── storage/       # Database interfaces
+│   │   │   ├── schemas/       # Data models and validation
+│   │   │   ├── prompts/       # LLM prompt templates
+│   │   │   └── cli/           # Command-line interface
+│   │   ├── app.py            # Quart web application
+│   │   └── config.py         # Backend configuration
+│   └── frontend/             # React + TypeScript + Vite
+│       ├── src/
+│       ├── public/
+│       └── package.json
+├── tests/                    # Test suite
+│   ├── unit/                # Unit tests
+│   └── integration/         # Integration tests
+├── docs/                     # Documentation
+├── examples/                 # Example configurations and scripts
+└── data/                     # Generated data (not in git)
 ```
 
 ## Roadmap
@@ -282,17 +313,16 @@ genealogy-ai/
 - [x] Reconciliation agent (fuzzy matching with human approval)
 - [x] Complete CLI (ingest, extract, reconcile, tree, export, search, stats)
 
-### Phase 2: Accuracy
-- [ ] Confidence thresholds
+### Phase 2: Accuracy & UI 🚧 In Progress
+- [x] Confidence thresholds (auto-approve with configurable threshold)
+- [x] Web interface foundation (Quart backend + Vite/React frontend)
+- [ ] File upload interface
+- [ ] Chat interface for Q&A
+- [ ] Tree visualization
 - [ ] Manual review tools
 - [ ] Improved reconciliation
 
-### Phase 3: UI
-- [ ] Web interface (Vite + React)
-- [ ] Tree visualization
-- [ ] Source viewer
-
-### Phase 4: Cloud (Optional)
+### Phase 3: Cloud (Optional)
 - [ ] Azure AI Vision adapter
 - [ ] Azure AI Search adapter
 - [ ] Cloud deployment guide
