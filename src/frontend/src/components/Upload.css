@@ -67,9 +67,36 @@
   margin-top: 2rem;
 }
 
-.documents-section h3 {
+.documents-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1rem;
+}
+
+.documents-header h3 {
+  margin: 0;
   color: #333;
+}
+
+.reset-button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+}
+
+.reset-button:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.reset-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .no-documents {
@@ -92,6 +119,10 @@
   padding: 1rem;
   transition: box-shadow 0.2s ease;
   color: #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
 }
 
 .document-card:hover {
@@ -102,6 +133,25 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  flex: 1;
+}
+
+.delete-button {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.delete-button:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.delete-button:disabled {
+  cursor: not-allowed;
 }
 
 .document-name {

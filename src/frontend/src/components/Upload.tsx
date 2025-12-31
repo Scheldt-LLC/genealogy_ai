@@ -30,6 +30,7 @@ export default function Upload() {
   const [dragActive, setDragActive] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchDocuments = async () => {
@@ -123,6 +124,69 @@ export default function Upload() {
     fileInputRef.current?.click()
   }
 
+  const handleDelete = async (documentId: number) => {
+    if (!window.confirm('Are you sure you want to delete this document? This will remove all extracted entities.')) {
+      return
+    }
+
+    setDeleting(documentId)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await fetch(`/api/documents/${documentId}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setSuccess('Document deleted successfully')
+        await fetchDocuments()
+      } else {
+        setError(data.error || 'Failed to delete document')
+      }
+    } catch (err) {
+      setError('Failed to delete document: ' + (err as Error).message)
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const handleReset = async () => {
+    if (!window.confirm('Are you sure you want to RESET THE ENTIRE DATABASE? This will delete ALL documents and extracted data. This action cannot be undone!')) {
+      return
+    }
+
+    // Double confirmation
+    if (!window.confirm('This is your last chance! Click OK to permanently delete everything.')) {
+      return
+    }
+
+    setUploading(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const response = await fetch('/api/reset', {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setSuccess('Database reset successfully. All data has been deleted.')
+        await fetchDocuments()
+      } else {
+        setError(data.error || 'Failed to reset database')
+      }
+    } catch (err) {
+      setError('Failed to reset database: ' + (err as Error).message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div className="upload-container">
       <h2>Upload Documents</h2>
@@ -178,7 +242,18 @@ export default function Upload() {
 
       {/* Documents List */}
       <div className="documents-section">
-        <h3>Uploaded Documents ({documents.length})</h3>
+        <div className="documents-header">
+          <h3>Uploaded Documents ({documents.length})</h3>
+          {documents.length > 0 && (
+            <button
+              className="reset-button"
+              onClick={handleReset}
+              disabled={uploading}
+            >
+              🗑️ Reset Database
+            </button>
+          )}
+        </div>
         {documents.length === 0 ? (
           <p className="no-documents">No documents uploaded yet.</p>
         ) : (
@@ -194,6 +269,14 @@ export default function Upload() {
                     )}
                   </span>
                 </div>
+                <button
+                  className="delete-button"
+                  onClick={() => handleDelete(doc.id)}
+                  disabled={deleting === doc.id}
+                  title="Delete document"
+                >
+                  {deleting === doc.id ? '⏳' : '🗑️'}
+                </button>
               </div>
             ))}
           </div>

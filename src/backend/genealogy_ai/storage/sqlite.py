@@ -548,3 +548,69 @@ class GenealogyDatabase:
             }
         finally:
             session.close()
+
+    def delete_document(self, document_id: int) -> None:
+        """Delete a document and all entities extracted from it.
+
+        Args:
+            document_id: ID of the document to delete
+
+        Note:
+            This will cascade delete people, events, and relationships
+            that reference this document as their source.
+        """
+        session = self.get_session()
+        try:
+            # Delete people that were only extracted from this document
+            people = session.query(Person).filter(
+                Person.source_document_id == document_id
+            ).all()
+
+            for person in people:
+                # Delete the person (cascades to names and events)
+                session.delete(person)
+
+            # Delete events that reference this document
+            session.query(Event).filter(
+                Event.source_document_id == document_id
+            ).delete()
+
+            # Delete relationships that reference this document
+            session.query(Relationship).filter(
+                Relationship.source_document_id == document_id
+            ).delete()
+
+            # Finally, delete the document itself
+            doc = session.query(Document).filter(Document.id == document_id).first()
+            if doc:
+                session.delete(doc)
+
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    def reset_database(self) -> None:
+        """Clear all data from the database.
+
+        Warning:
+            This will delete ALL data from the database.
+            Use with caution!
+        """
+        session = self.get_session()
+        try:
+            # Delete in order to respect foreign keys
+            session.query(Relationship).delete()
+            session.query(Event).delete()
+            session.query(Name).delete()
+            session.query(Person).delete()
+            session.query(Document).delete()
+
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
