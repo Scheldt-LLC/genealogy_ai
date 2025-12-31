@@ -8,6 +8,7 @@ from quart_cors import cors
 from src.backend.api.chat import chat_bp
 from src.backend.api.documents import documents_bp
 from src.backend.api.management import management_bp
+from src.backend.api.tree import tree_bp
 from src.backend.api.upload import upload_bp
 from src.backend.config import get_config
 
@@ -45,6 +46,7 @@ def create_app(config_name: str = "development") -> Quart:
     app.register_blueprint(documents_bp)
     app.register_blueprint(chat_bp)
     app.register_blueprint(management_bp)
+    app.register_blueprint(tree_bp)
 
     # Register routes
     register_routes(app)

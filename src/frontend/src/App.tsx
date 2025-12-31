@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import Upload from './components/Upload'
 import Chat from './components/Chat'
+import Tree from './components/Tree'
 
 interface HealthResponse {
   status: string
@@ -9,7 +10,7 @@ interface HealthResponse {
   version: string
 }
 
-type Tab = 'upload' | 'chat'
+type Tab = 'upload' | 'chat' | 'tree'
 
 function App() {
   const [apiStatus, setApiStatus] = useState<HealthResponse | null>(null)
@@ -54,11 +55,18 @@ function App() {
         >
           Chat
         </button>
+        <button
+          className={`nav-tab ${activeTab === 'tree' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tree')}
+        >
+          Family Tree
+        </button>
       </nav>
 
       <main>
         {activeTab === 'upload' && <Upload />}
         {activeTab === 'chat' && <Chat />}
+        {activeTab === 'tree' && <Tree />}
       </main>
     </>
   )

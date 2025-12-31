@@ -4,6 +4,7 @@ This module identifies potential duplicate people in the genealogy database
 using fuzzy name matching, date/place comparison, and vector similarity.
 """
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,6 +12,36 @@ from rapidfuzz import fuzz
 from sqlalchemy.orm import Session
 
 from src.backend.genealogy_ai.storage.sqlite import Event, GenealogyDatabase, Name, Person
+
+
+def normalize_name(name: str) -> str:
+    """Normalize a name for better matching.
+
+    Handles variations like:
+    - "O'Byrne, John" vs "John O'Byrne"
+    - Punctuation differences (apostrophes, hyphens)
+    - "Last, First" vs "First Last" ordering
+
+    Args:
+        name: The name to normalize
+
+    Returns:
+        Normalized name with parts sorted alphabetically
+    """
+    # Convert to lowercase
+    normalized = name.lower()
+
+    # Remove punctuation (keep spaces)
+    normalized = re.sub(r"['\-,.]", " ", normalized)
+
+    # Split into parts and remove empty strings
+    parts = [part for part in normalized.split() if part]
+
+    # Sort parts alphabetically for consistent comparison
+    parts.sort()
+
+    # Join back together
+    return " ".join(parts)
 
 
 @dataclass
@@ -94,21 +125,21 @@ class ReconciliationAgent:
         reasons = []
         scores = []
 
-        # Compare primary names
-        name_score = fuzz.ratio(
-            person1.primary_name.lower(), person2.primary_name.lower()
-        ) / 100.0
+        # Compare primary names (with normalization)
+        norm_name1 = normalize_name(person1.primary_name)
+        norm_name2 = normalize_name(person2.primary_name)
+        name_score = fuzz.ratio(norm_name1, norm_name2) / 100.0
 
         if name_score >= self.name_threshold:
             reasons.append(f"name match: {name_score:.2f}")
             scores.append(name_score)
         else:
-            # Check alternate names
-            person1_names = {person1.primary_name.lower()}
-            person1_names.update(n.name.lower() for n in person1.names)
+            # Check alternate names (also normalized)
+            person1_names = {normalize_name(person1.primary_name)}
+            person1_names.update(normalize_name(n.name) for n in person1.names)
 
-            person2_names = {person2.primary_name.lower()}
-            person2_names.update(n.name.lower() for n in person2.names)
+            person2_names = {normalize_name(person2.primary_name)}
+            person2_names.update(normalize_name(n.name) for n in person2.names)
 
             # Check if any names match
             max_variant_score = 0.0
