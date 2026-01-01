@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from quart import Blueprint, current_app, jsonify
+from quart import Blueprint, current_app, jsonify, send_file
 
 from src.backend.genealogy_ai.storage.sqlite import Document, GenealogyDatabase
 
@@ -75,3 +75,54 @@ async def list_documents() -> dict:
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Failed to fetch documents: {e!s}"}), 500
+
+
+@documents_bp.route("/api/documents/<int:document_id>/file", methods=["GET"])
+async def get_document_file(document_id: int):
+    """Get the original file for a document.
+
+    Args:
+        document_id: ID of the document
+
+    Returns:
+        The original file for download/viewing
+    """
+    try:
+        db_path = Path(current_app.config.get("DB_PATH", "./genealogy.db"))
+
+        if not db_path.exists():
+            return jsonify({"error": "Database not found"}), 404
+
+        db = GenealogyDatabase(db_path=db_path)
+        session = db.get_session()
+
+        # Get the document to find its source file path
+        document = session.query(Document).filter(Document.id == document_id).first()
+
+        if not document:
+            return jsonify({"error": "Document not found"}), 404
+
+        file_path = Path(document.source)
+
+        # Security check: ensure file is within allowed directories
+        upload_folder = Path(current_app.config.get("UPLOAD_FOLDER", "./uploads"))
+        try:
+            file_path.resolve().relative_to(upload_folder.resolve())
+        except ValueError:
+            # File is not in upload folder, reject
+            return jsonify({"error": "File not found"}), 404
+
+        if not file_path.exists():
+            return jsonify({"error": "File not found on disk"}), 404
+
+        # Send the file
+        return await send_file(
+            file_path,
+            as_attachment=False,  # Display in browser if possible
+            attachment_filename=file_path.name,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to retrieve file: {e!s}"}), 500

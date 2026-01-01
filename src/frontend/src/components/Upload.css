@@ -211,6 +211,29 @@
   flex: 1;
 }
 
+.document-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.view-button {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.view-button:hover {
+  opacity: 1;
+}
+
 .delete-button {
   background: transparent;
   border: none;

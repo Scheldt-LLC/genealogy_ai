@@ -361,14 +361,25 @@ export default function Upload() {
                     )}
                   </span>
                 </div>
-                <button
-                  className="delete-button"
-                  onClick={() => handleDelete(doc.id)}
-                  disabled={deleting === doc.id}
-                  title="Delete document"
-                >
-                  {deleting === doc.id ? '⏳' : '🗑️'}
-                </button>
+                <div className="document-actions">
+                  <a
+                    href={`/api/documents/${doc.id}/file`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="view-button"
+                    title="View original file"
+                  >
+                    👁️
+                  </a>
+                  <button
+                    className="delete-button"
+                    onClick={() => handleDelete(doc.id)}
+                    disabled={deleting === doc.id}
+                    title="Delete document"
+                  >
+                    {deleting === doc.id ? '⏳' : '🗑️'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
