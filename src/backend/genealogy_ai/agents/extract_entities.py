@@ -4,11 +4,11 @@ This module uses an LLM to extract structured genealogical data
 (people, events, relationships) from OCR'd document text.
 """
 
-import json
 from pathlib import Path
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from src.backend.genealogy_ai.config import settings
 from src.backend.genealogy_ai.schemas import ExtractionResult
@@ -29,7 +29,7 @@ class EntityExtractor:
 
         # Load extraction prompt from genealogy_ai/prompts/
         prompt_path = Path(__file__).parent.parent / "prompts" / "extraction.md"
-        with open(prompt_path) as f:
+        with prompt_path.open() as f:
             self.system_prompt = f.read()
 
         # Initialize LLM based on provider
@@ -38,7 +38,7 @@ class EntityExtractor:
             self.llm = ChatOpenAI(
                 model=self.model_name,
                 temperature=self.temperature,
-                api_key=api_key,
+                api_key=SecretStr(api_key),
             )
         else:
             raise NotImplementedError(
@@ -79,16 +79,16 @@ class EntityExtractor:
             return ExtractionResult()
 
         try:
-            result = self.chain.invoke({"text": text, "source": source, "page": page})
+            result: ExtractionResult = self.chain.invoke(
+                {"text": text, "source": source, "page": page}
+            )  # type: ignore[assignment]
             return result
         except Exception as e:
             # Log error and return empty result
             print(f"Extraction error for {source} page {page}: {e}")
             return ExtractionResult()
 
-    def extract_batch(
-        self, documents: list[tuple[str, str, int]]
-    ) -> list[ExtractionResult]:
+    def extract_batch(self, documents: list[tuple[str, str, int]]) -> list[ExtractionResult]:
         """Extract entities from multiple documents.
 
         Args:

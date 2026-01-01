@@ -4,6 +4,7 @@ import './Chat.css'
 interface Source {
   source: string
   page: number
+  document_id: number | null
   text_preview: string
 }
 
@@ -109,9 +110,21 @@ export default function Chat() {
                       <strong>Sources:</strong>
                       {message.sources.map((source, idx) => (
                         <div key={idx} className="source-item">
-                          <span className="source-file">
-                            {source.source.split('/').pop()} (Page {source.page})
-                          </span>
+                          {source.document_id ? (
+                            <a
+                              href={`/api/documents/${source.document_id}/file`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="source-file source-link"
+                              title="View original document"
+                            >
+                              {source.source.split('/').pop()} (Page {source.page}) 👁️
+                            </a>
+                          ) : (
+                            <span className="source-file">
+                              {source.source.split('/').pop()} (Page {source.page})
+                            </span>
+                          )}
                           <div className="source-preview">{source.text_preview}</div>
                         </div>
                       ))}

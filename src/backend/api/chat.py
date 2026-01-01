@@ -4,16 +4,18 @@ from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from quart import Blueprint, current_app, jsonify, request
+from pydantic import SecretStr
+from quart import Blueprint, Response, current_app, jsonify, request
 
 from src.backend.genealogy_ai.config import settings
 from src.backend.genealogy_ai.storage.chroma import ChromaStore
+from src.backend.genealogy_ai.storage.sqlite import Document, GenealogyDatabase
 
 chat_bp = Blueprint("chat", __name__)
 
 
 @chat_bp.route("/api/chat", methods=["POST"])
-async def chat() -> tuple[dict, int]:
+async def chat() -> Response | tuple[Response, int]:
     """Ask a question about the genealogy documents.
 
     Expects JSON body with:
@@ -70,7 +72,7 @@ async def chat() -> tuple[dict, int]:
         llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0,
-            api_key=api_key,
+            api_key=SecretStr(api_key),
         )
 
         # Create prompt
@@ -94,6 +96,11 @@ Please answer the question based on the context provided above."""
         # Get answer
         response = llm.invoke([system_message, user_message])
 
+        # Get database connection to look up document IDs
+        db_path = Path(current_app.config.get("DB_PATH", "./genealogy.db"))
+        db = GenealogyDatabase(db_path=db_path)
+        session = db.get_session()
+
         # Extract sources
         sources = []
         seen_sources = set()
@@ -107,10 +114,18 @@ Please answer the question based on the context provided above."""
 
             if source_id not in seen_sources:
                 seen_sources.add(source_id)
+
+                # Look up document ID from database
+                document_id = None
+                db_doc = session.query(Document).filter(Document.source == source).first()
+                if db_doc:
+                    document_id = db_doc.id
+
                 sources.append(
                     {
                         "source": source,
                         "page": page,
+                        "document_id": document_id,
                         "text_preview": doc.page_content[:200] + "..."
                         if len(doc.page_content) > 200
                         else doc.page_content,

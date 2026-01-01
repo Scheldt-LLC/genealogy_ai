@@ -1,8 +1,9 @@
 """Family tree API endpoints."""
 
 from pathlib import Path
+from typing import cast
 
-from quart import Blueprint, current_app, jsonify, request
+from quart import Blueprint, Response, current_app, jsonify, request
 
 from src.backend.genealogy_ai.storage.sqlite import Event, GenealogyDatabase, Person, Relationship
 
@@ -10,7 +11,7 @@ tree_bp = Blueprint("tree", __name__)
 
 
 @tree_bp.route("/api/tree", methods=["GET"])
-async def get_tree() -> tuple[dict, int]:
+async def get_tree() -> Response | tuple[Response, int]:
     """Get family tree data (all people and relationships).
 
     Query parameters:
@@ -38,14 +39,18 @@ async def get_tree() -> tuple[dict, int]:
                 person_ids = {person_id}
 
                 # Get relationships for this person
-                rels = session.query(Relationship).filter(
-                    (Relationship.source_person_id == person_id)
-                    | (Relationship.target_person_id == person_id)
-                ).all()
+                rels = (
+                    session.query(Relationship)
+                    .filter(
+                        (Relationship.source_person_id == person_id)
+                        | (Relationship.target_person_id == person_id)
+                    )
+                    .all()
+                )
 
                 for rel in rels:
-                    person_ids.add(rel.source_person_id)
-                    person_ids.add(rel.target_person_id)
+                    person_ids.add(cast(int, rel.source_person_id))
+                    person_ids.add(cast(int, rel.target_person_id))
 
                 people = session.query(Person).filter(Person.id.in_(person_ids)).all()
             else:
@@ -56,15 +61,17 @@ async def get_tree() -> tuple[dict, int]:
             people_data = []
             for person in people:
                 # Get events
-                birth_event = session.query(Event).filter(
-                    Event.person_id == person.id,
-                    Event.event_type == "birth"
-                ).first()
+                birth_event = (
+                    session.query(Event)
+                    .filter(Event.person_id == person.id, Event.event_type == "birth")
+                    .first()
+                )
 
-                death_event = session.query(Event).filter(
-                    Event.person_id == person.id,
-                    Event.event_type == "death"
-                ).first()
+                death_event = (
+                    session.query(Event)
+                    .filter(Event.person_id == person.id, Event.event_type == "death")
+                    .first()
+                )
 
                 person_data = {
                     "id": person.id,
@@ -78,37 +85,39 @@ async def get_tree() -> tuple[dict, int]:
                 people_data.append(person_data)
 
             # Get relationships
-            if person_id:
-                relationships = rels
-            else:
-                relationships = session.query(Relationship).all()
+            relationships = rels if person_id else session.query(Relationship).all()
 
             relationships_data = []
             for rel in relationships:
-                relationships_data.append({
-                    "id": rel.id,
-                    "source_id": rel.source_person_id,
-                    "target_id": rel.target_person_id,
-                    "type": rel.relationship_type,
-                })
+                relationships_data.append(
+                    {
+                        "id": rel.id,
+                        "source_id": rel.source_person_id,
+                        "target_id": rel.target_person_id,
+                        "type": rel.relationship_type,
+                    }
+                )
 
-            return jsonify({
-                "success": True,
-                "people": people_data,
-                "relationships": relationships_data,
-            }), 200
+            return jsonify(
+                {
+                    "success": True,
+                    "people": people_data,
+                    "relationships": relationships_data,
+                }
+            ), 200
 
         finally:
             session.close()
 
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         return jsonify({"error": f"Failed to get tree data: {e!s}"}), 500
 
 
 @tree_bp.route("/api/tree/people", methods=["GET"])
-async def list_people() -> tuple[dict, int]:
+async def list_people() -> Response | tuple[Response, int]:
     """Get a simple list of all people (for selection/search).
 
     Returns:
@@ -125,42 +134,46 @@ async def list_people() -> tuple[dict, int]:
             people_list = []
             for person in people:
                 # Get birth year for sorting
-                birth_event = session.query(Event).filter(
-                    Event.person_id == person.id,
-                    Event.event_type == "birth"
-                ).first()
+                birth_event = (
+                    session.query(Event)
+                    .filter(Event.person_id == person.id, Event.event_type == "birth")
+                    .first()
+                )
 
                 birth_year = None
-                if birth_event and birth_event.date:
+                date_str = cast(str | None, birth_event.date) if birth_event else None
+                if birth_event and date_str:
                     # Try to extract year from date string
                     try:
                         # Handle various date formats (YYYY, YYYY-MM-DD, etc.)
-                        birth_year = birth_event.date.split('-')[0]
-                        if birth_year.isdigit():
-                            birth_year = int(birth_year)
-                        else:
-                            birth_year = None
-                    except:
+                        year_part = date_str.split("-")[0]
+                        birth_year = int(year_part) if year_part.isdigit() else None
+                    except Exception:
                         birth_year = None
 
-                people_list.append({
-                    "id": person.id,
-                    "name": person.primary_name,
-                    "birth_year": birth_year,
-                })
+                people_list.append(
+                    {
+                        "id": person.id,
+                        "name": person.primary_name,
+                        "birth_year": birth_year,
+                    }
+                )
 
             # Sort by birth year (oldest first), then by name
             people_list.sort(key=lambda x: (x["birth_year"] or 9999, x["name"]))
 
-            return jsonify({
-                "success": True,
-                "people": people_list,
-            }), 200
+            return jsonify(
+                {
+                    "success": True,
+                    "people": people_list,
+                }
+            ), 200
 
         finally:
             session.close()
 
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         return jsonify({"error": f"Failed to list people: {e!s}"}), 500

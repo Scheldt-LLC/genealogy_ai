@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, DragEvent, ChangeEvent } from 'react'
 import './Upload.css'
+import DocumentDetails from './DocumentDetails'
 
 interface Document {
   id: number
@@ -38,6 +39,7 @@ export default function Upload() {
   const [success, setSuccess] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [uploadQueue, setUploadQueue] = useState<FileProgress[]>([])
+  const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchDocuments = async () => {
@@ -362,6 +364,13 @@ export default function Upload() {
                   </span>
                 </div>
                 <div className="document-actions">
+                  <button
+                    className="details-button"
+                    onClick={() => setSelectedDocumentId(doc.id)}
+                    title="View extracted text"
+                  >
+                    📄
+                  </button>
                   <a
                     href={`/api/documents/${doc.id}/file`}
                     target="_blank"
@@ -385,6 +394,14 @@ export default function Upload() {
           </div>
         )}
       </div>
+
+      {/* Document Details Modal */}
+      {selectedDocumentId && (
+        <DocumentDetails
+          documentId={selectedDocumentId}
+          onClose={() => setSelectedDocumentId(null)}
+        />
+      )}
     </div>
   )
 }

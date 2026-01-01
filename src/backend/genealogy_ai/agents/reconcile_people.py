@@ -6,12 +6,12 @@ using fuzzy name matching, date/place comparison, and vector similarity.
 
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import cast
 
 from rapidfuzz import fuzz
 from sqlalchemy.orm import Session
 
-from src.backend.genealogy_ai.storage.sqlite import Event, GenealogyDatabase, Name, Person
+from src.backend.genealogy_ai.storage.sqlite import Event, GenealogyDatabase, Person
 
 
 def normalize_name(name: str) -> str:
@@ -126,8 +126,8 @@ class ReconciliationAgent:
         scores = []
 
         # Compare primary names (with normalization)
-        norm_name1 = normalize_name(person1.primary_name)
-        norm_name2 = normalize_name(person2.primary_name)
+        norm_name1 = normalize_name(cast(str, person1.primary_name))
+        norm_name2 = normalize_name(cast(str, person2.primary_name))
         name_score = fuzz.ratio(norm_name1, norm_name2) / 100.0
 
         if name_score >= self.name_threshold:
@@ -135,10 +135,10 @@ class ReconciliationAgent:
             scores.append(name_score)
         else:
             # Check alternate names (also normalized)
-            person1_names = {normalize_name(person1.primary_name)}
+            person1_names = {normalize_name(cast(str, person1.primary_name))}
             person1_names.update(normalize_name(n.name) for n in person1.names)
 
-            person2_names = {normalize_name(person2.primary_name)}
+            person2_names = {normalize_name(cast(str, person2.primary_name))}
             person2_names.update(normalize_name(n.name) for n in person2.names)
 
             # Check if any names match
@@ -156,12 +156,14 @@ class ReconciliationAgent:
                 return None
 
         # Compare birth dates if both exist
-        person1_birth = self._get_event(person1.id, "birth", session)
-        person2_birth = self._get_event(person2.id, "birth", session)
+        person1_birth = self._get_event(cast(int, person1.id), "birth", session)
+        person2_birth = self._get_event(cast(int, person2.id), "birth", session)
 
         if person1_birth and person2_birth:
-            if person1_birth.date and person2_birth.date:
-                if person1_birth.date == person2_birth.date:
+            birth1_date = cast(str | None, person1_birth.date)
+            birth2_date = cast(str | None, person2_birth.date)
+            if birth1_date and birth2_date:
+                if birth1_date == birth2_date:
                     reasons.append("same birth date")
                     scores.append(1.0)
                 else:
@@ -171,26 +173,26 @@ class ReconciliationAgent:
 
         # Compare birth places if both exist
         if person1_birth and person2_birth:
-            if person1_birth.place and person2_birth.place:
+            birth1_place = cast(str | None, person1_birth.place)
+            birth2_place = cast(str | None, person2_birth.place)
+            if birth1_place and birth2_place:
                 place_score = (
-                    fuzz.ratio(
-                        person1_birth.place.lower(), person2_birth.place.lower()
-                    )
-                    / 100.0
+                    fuzz.ratio(person1_birth.place.lower(), person2_birth.place.lower()) / 100.0
                 )
                 if place_score >= 0.8:
                     reasons.append(f"similar birth place: {place_score:.2f}")
                     scores.append(place_score * 0.8)  # Weight place less than name
 
         # Compare death dates if both exist
-        person1_death = self._get_event(person1.id, "death", session)
-        person2_death = self._get_event(person2.id, "death", session)
+        person1_death = self._get_event(cast(int, person1.id), "death", session)
+        person2_death = self._get_event(cast(int, person2.id), "death", session)
 
         if person1_death and person2_death:
-            if person1_death.date and person2_death.date:
-                if person1_death.date == person2_death.date:
-                    reasons.append("same death date")
-                    scores.append(1.0)
+            death1_date = cast(str | None, person1_death.date)
+            death2_date = cast(str | None, person2_death.date)
+            if death1_date and death2_date and death1_date == death2_date:
+                reasons.append("same death date")
+                scores.append(1.0)
 
         # Calculate overall confidence
         if not scores:
@@ -199,10 +201,10 @@ class ReconciliationAgent:
         confidence = sum(scores) / len(scores)
 
         return DuplicateCandidate(
-            person1_id=person1.id,
-            person1_name=person1.primary_name,
-            person2_id=person2.id,
-            person2_name=person2.primary_name,
+            person1_id=cast(int, person1.id),
+            person1_name=cast(str, person1.primary_name),
+            person2_id=cast(int, person2.id),
+            person2_name=cast(str, person2.primary_name),
             confidence=confidence,
             reasons=reasons,
         )

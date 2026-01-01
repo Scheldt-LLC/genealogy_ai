@@ -100,6 +100,7 @@ select = [
     "PTH",    # flake8-use-pathlib
 ]
 ignore = [
+    "E203",   # whitespace before ':' (conflicts with Black/Ruff formatter)
     "E501",   # line too long (handled by formatter)
     "B008",   # do not perform function calls in argument defaults
     "B904",   # raise from

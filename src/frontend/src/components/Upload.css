@@ -217,6 +217,20 @@
   gap: 0.5rem;
 }
 
+.details-button {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.details-button:hover {
+  opacity: 1;
+}
+
 .view-button {
   background: transparent;
   border: none;

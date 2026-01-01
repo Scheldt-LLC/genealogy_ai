@@ -1,10 +1,8 @@
 """File upload API endpoints."""
 
-import os
 from pathlib import Path
-from typing import Any
 
-from quart import Blueprint, current_app, jsonify, request
+from quart import Blueprint, Response, current_app, jsonify, request
 from werkzeug.utils import secure_filename
 
 from src.backend.genealogy_ai.agents.extract_entities import EntityExtractor
@@ -33,7 +31,7 @@ def allowed_file(filename: str) -> bool:
 
 
 @upload_bp.route("/api/upload", methods=["POST"])
-async def upload_file() -> tuple[dict[str, Any], int]:
+async def upload_file() -> Response | tuple[Response, int]:
     """Upload and process a document file.
 
     Accepts multipart/form-data with file upload.
@@ -86,7 +84,8 @@ async def upload_file() -> tuple[dict[str, Any], int]:
                 page=ocr_result.page_number,
                 ocr_text=ocr_result.text,
             )
-            document_ids.append(doc.id)
+            if doc:
+                document_ids.append(doc.id)
 
         # Step 3: Entity Extraction
         total_people = 0
@@ -96,7 +95,7 @@ async def upload_file() -> tuple[dict[str, Any], int]:
         try:
             extractor = EntityExtractor()
 
-            for ocr_result, doc_id in zip(ocr_results, document_ids):
+            for ocr_result, doc_id in zip(ocr_results, document_ids, strict=True):
                 # Extract entities from this page
                 extraction_result = extractor.extract(
                     text=ocr_result.text,
@@ -127,9 +126,7 @@ async def upload_file() -> tuple[dict[str, Any], int]:
             # Auto-merge exact matches (100% confidence)
             for candidate in candidates:
                 if candidate.confidence >= 1.0:
-                    db.merge_people(
-                        keep_id=candidate.person1_id, merge_id=candidate.person2_id
-                    )
+                    db.merge_people(keep_id=candidate.person1_id, merge_id=candidate.person2_id)
                     duplicates_merged += 1
 
         except Exception as e:
@@ -178,7 +175,7 @@ async def upload_file() -> tuple[dict[str, Any], int]:
     except Exception as e:
         # Clean up the file if processing failed
         if file_path.exists():
-            os.remove(file_path)
+            file_path.unlink()
 
         # Log full traceback for debugging
         import traceback

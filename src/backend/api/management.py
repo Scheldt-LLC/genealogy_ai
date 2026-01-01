@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from quart import Blueprint, current_app, jsonify
+from quart import Blueprint, Response, current_app, jsonify
 
 from src.backend.genealogy_ai.storage.chroma import ChromaStore
 from src.backend.genealogy_ai.storage.sqlite import GenealogyDatabase
@@ -11,7 +11,7 @@ management_bp = Blueprint("management", __name__)
 
 
 @management_bp.route("/api/documents/<int:document_id>", methods=["DELETE"])
-async def delete_document(document_id: int) -> tuple[dict, int]:
+async def delete_document(document_id: int) -> Response | tuple[Response, int]:
     """Delete a specific document and all its extracted data.
 
     Args:
@@ -33,7 +33,7 @@ async def delete_document(document_id: int) -> tuple[dict, int]:
             if not doc:
                 return jsonify({"error": "Document not found"}), 404
 
-            source_path = doc.source
+            source_path = str(doc.source)
         finally:
             session.close()
 
@@ -64,7 +64,7 @@ async def delete_document(document_id: int) -> tuple[dict, int]:
 
 
 @management_bp.route("/api/reset", methods=["POST"])
-async def reset_database() -> tuple[dict, int]:
+async def reset_database() -> Response | tuple[Response, int]:
     """Reset the entire database (both SQLite and ChromaDB).
 
     WARNING: This will delete ALL data!
