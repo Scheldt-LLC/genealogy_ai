@@ -1,49 +1,130 @@
-# Quick Start Guide - Document Ingestion
+# Quick Start Guide
 
-This guide will help you get started with ingesting genealogical documents using the Genealogy AI ingestion module.
+This guide walks you through getting Genealogy AI running on your machine, from installation to your first document ingestion.
+
+## Table of Contents
+
+1. [Prerequisites](#prerequisites)
+2. [Installation](#installation)
+3. [Running the Web Application](#running-the-web-application)
+4. [Using the CLI](#using-the-cli)
+5. [Next Steps](#next-steps)
 
 ## Prerequisites
 
-### System Dependencies
+### Required Software
 
-**Tesseract OCR** is required for text extraction from images and PDFs.
+1. **Python 3.11 or higher**
 
-**macOS:**
+   ```bash
+   python3 --version  # Should show 3.11+
+   ```
+
+2. **uv Package Manager** (recommended) or pip
+
+   ```bash
+   # Install uv
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+3. **Tesseract OCR** - Required for text extraction from images and PDFs
+
+   **macOS:**
+
+   ```bash
+   brew install tesseract
+   ```
+
+   **Ubuntu/Debian:**
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install tesseract-ocr
+   ```
+
+   **Windows:**
+   Download the installer from [GitHub](https://github.com/UB-Mannheim/tesseract/wiki)
+
+   Verify installation:
+
+   ```bash
+   tesseract --version
+   ```
+
+4. **Node.js 18+** (for web UI only)
+
+   ```bash
+   node --version  # Should show 18+
+   ```
+
+## Installation
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/Scheldt-LLC/genealogy-ai.git
+   cd genealogy-ai
+   ```
+
+2. **Install Python dependencies:**
+
+   ```bash
+   # Create virtual environment and install
+   uv venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   uv pip install -e ".[dev]"
+   ```
+
+3. **(Optional) Install frontend dependencies:**
+
+   ```bash
+   cd src/frontend
+   npm install
+   cd ../..
+   ```
+
+## Running the Web Application
+
+The web UI provides an intuitive interface for uploading documents, viewing OCR results, and exploring your family tree.
+
+### Development Mode (with hot reload)
+
+**Terminal 1 - Backend:**
 
 ```bash
-brew install tesseract
+# From project root
+uv run hypercorn src.backend.app:app --bind 0.0.0.0:5001 --reload
 ```
 
-**Ubuntu/Debian:**
+**Terminal 2 - Frontend:**
 
 ```bash
-sudo apt-get update
-sudo apt-get install tesseract-ocr
+# From project root
+cd src/frontend
+npm run dev
 ```
 
-**Windows:**
+Then open your browser to `http://localhost:5173`
 
-Download the installer from [GitHub](https://github.com/UB-Mannheim/tesseract/wiki)
-
-### Python Dependencies
-
-Install the project in development mode:
+### Production Mode (single server)
 
 ```bash
-# Install all dependencies
-pip install -e .
+# Build the frontend (one-time)
+cd src/frontend
+npm install && npm run build
+cd ../..
 
-# Or with development tools
-pip install -e ".[dev]"
+# Start the backend (serves built frontend + API)
+uv Using the CLI
 
-# Optional: Install PaddleOCR for better handwriting support
-pip install -e ".[paddleocr]"
+### 1. Ingest Documentbackend.app:app --bind 0.0.0.0:5001
 ```
 
-## Basic Usage
+Then open your browser to `http://localhost:5001`
 
-### 1. Ingest Documents
+## Using the CLI
 
+2. Check Statistic
 The `ingest` command processes PDF or image files, extracts text using OCR, and stores the results in both SQLite and Chroma vector databases.
 
 ```bash
@@ -55,14 +136,14 @@ geneai ingest scans/*.pdf
 
 # Ingest with custom settings
 geneai ingest scans/*.pdf \
-  --output-dir ./my_ocr_output \
+  # 3. Search Your Documents
   --db ./my_genealogy.db \
   --chroma-dir ./my_vector_db \
   --chunk-size 1500 \
   --save-images
 ```
 
-#### Command Options
+### Command Options
 
 - `--output-dir, -o`: Directory for OCR output (default: `./ocr_output`)
 - `--db`: Path to SQLite database (default: `./genealogy.db`)
@@ -96,7 +177,7 @@ geneai search "birth certificate" --limit 10
 
 After running ingestion, you'll see:
 
-```
+```text
 your-project/
 ├── ocr_output/              # Raw OCR outputs
 │   ├── document1_ocr.json   # OCR results in JSON
@@ -105,7 +186,41 @@ your-project/
 ├── genealogy.db             # SQLite database (structured facts)
 └── chroma_db/               # Vector database (semantic search)
     └── ...
-```
+```Next Steps
+
+After your first successful ingestion:
+
+1. **Extract Entities** - Pull out people, dates, places from your documents
+   ```bash
+   geneai extract
+   ```
+
+2. **Reconcile Duplicates** - Merge duplicate people with confidence scoring
+
+   ```bash
+   geneai reconcile
+   ```
+
+3. **Query Family Tree** - Explore relationships
+
+   ```bash
+   geneai tree --person "John Byrne"
+   ```
+
+4. **Export to GEDCOM** - Share with other genealogy software
+
+  # What Gets Stored Where
+
+   geneai export family_tree.ged
+
+   ```text
+
+For more information, see:
+- Main [README.md](../README.md) for full feature list and architecture
+- [STORAGE_OVERVIEW.md](STORAGE_OVERVIEW.md) for how data is organized
+- [CONTRIBUTING.md](../CONTRIBUTING.md) for development guidelines
+
+## Understanding the File Structu
 
 ## What Gets Stored Where
 
@@ -119,26 +234,18 @@ your-project/
 
 - Documents table: source documents and pages
 - People, events, relationships (added later by extraction agents)
-- This is the **source of truth** for genealogical facts
+- TCommon Workflows
+
+### Complete CLI Workflow truth** for genealogical facts
 
 ### Chroma Vector Database (`chroma_db/`)
-
+# Supported File Format
 - Text chunks with embeddings for semantic search
 - Used to find similar content across documents
 - **Not** the source of truth - used for discovery only
 
 ## Example Workflow
-
-```bash
-# 1. Install dependencies
-brew install tesseract
-pip install -e .
-
-# 2. Create a directory for your scans
-mkdir -p scans
-# ... add your PDF/image files to scans/
-
-# 3. Ingest documents
+# Performance Tipsnts
 geneai ingest scans/*.pdf --save-images
 
 # 4. Check what was ingested
@@ -150,7 +257,7 @@ geneai search "marriage certificate"
 geneai search "John Byrne"
 ```
 
-## Supported File Formats
+## Troubleshooting
 
 - **PDF** (`.pdf`)
 - **Images** (`.png`, `.jpg`, `.jpeg`, `.tiff`, `.tif`, `.bmp`)
@@ -159,7 +266,7 @@ geneai search "John Byrne"
 
 - **DPI Setting**: Higher DPI (e.g., 400-600) improves OCR accuracy but takes longer
 - **Chunk Size**: Smaller chunks (500-1000) work better for dense documents
-- **Save Images**: Only use `--save-images` if you need to review page images later
+**"tesseract not found"**nly use `--save-images` if you need to review page images later
 
 ## Next Steps
 
@@ -167,25 +274,14 @@ After ingestion, the next steps are:
 
 1. **Entity Extraction**: Extract people, dates, places, relationships from OCR text
 2. **Reconciliation**: Identify and merge duplicate people/events
-3. **Family Tree Queries**: Query the structured database for genealogical information
+**Low OCR Accuracy**Queries**: Query the structured database for genealogical information
 
 These features will be implemented in the next phase.
 
 ## Troubleshooting
 
-### "tesseract not found"
+**Out of Memory**
 
-Make sure Tesseract is installed and in your PATH:
-
-```bash
-which tesseract  # Should show the path to tesseract
-tesseract --version  # Should show version info
-```
-
-### Low OCR Accuracy
-
-- Increase DPI: `--dpi 400` or higher
-- Ensure scans are high quality and well-lit
 - Consider PaddleOCR for handwritten documents
 
 ### Out of Memory

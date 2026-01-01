@@ -1,6 +1,6 @@
 # Genealogy AI
-Extract genealogical information from historical documents using OCR and LLMs.
 
+Extract genealogical information from historical documents using OCR and LLMs.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -31,21 +31,26 @@ Genealogy AI ingests scanned historical family documents (typed, handwritten, ph
 
 ## Quick Start
 
+> 📖 **Detailed Setup**: See [docs/QUICKSTART.md](docs/QUICKSTART.md) for comprehensive installation and usage instructions.
+
 ### Prerequisites
 
 - Python 3.11 or higher
-- [uv](https://github.com/astral-sh/uv) package manager
+- [uv](https://github.com/astral-sh/uv) package manager (recommended) or pip
 - Tesseract OCR (see [installation instructions](#installing-tesseract))
+- Node.js 18+ (for web UI only)
 
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/Scheldt-LLC/genealogy-ai.git
 cd genealogy-ai
 ```
 
 2. Install with uv:
+
 ```bash
 # Install uv if you haven't already
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -56,20 +61,16 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e ".[dev]"
 ```
 
-3. Set up your configuration:
-```bash
-cp examples/config.example.yaml config.yaml
-# Edit config.yaml with your settings
-```
-
-### Installing Tesseract
+3. Install Tesseract OCR (required for document processing):
 
 **macOS:**
+
 ```bash
 brew install tesseract
 ```
 
 **Ubuntu/Debian:**
+
 ```bash
 sudo apt-get install tesseract-ocr
 ```
@@ -79,33 +80,82 @@ Download installer from [GitHub releases](https://github.com/UB-Mannheim/tessera
 
 ## Usage
 
-### Web Application
+### Web Application (Recommended)
+
+The web UI provides an intuitive interface for uploading documents, chatting with your data, and visualizing your family tree.
 
 **Development Mode** (with hot reload):
 
 ```bash
-# Terminal 1: Start the backend (Hypercorn server on port 5001)
+# Terminal 1: Start the backend
 uv run hypercorn src.backend.app:app --bind 0.0.0.0:5001 --reload
 
-# Terminal 2: Start the frontend (Vite dev server on port 5173)
+# Terminal 2: Start the frontend dev server
 cd src/frontend
+npm install  # First time only
 npm run dev
 ```
 
-Then open your browser to `http://localhost:5173`
+Then open `http://localhost:5173` in your browser.
 
 **Production Mode** (single server):
 
 ```bash
 # Build the frontend
 cd src/frontend
-npm run build
+npm install && npm run build
+cd ../..
 
-# Start the backend (serves frontend + API on port 5001)
+# Start the backend (serves frontend + API)
 uv run hypercorn src.backend.app:app --bind 0.0.0.0:5001
 ```
 
-Then open your browser to `http://localhost:5001`
+Then open `http://localhost:5001` in your browser.
+brew install tesseract
+
+```text
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install tesseract-ocr
+```
+
+**Windows:**
+Download installer from [GitHub releases](https://github.com/UB-Mannheim/tesseract/wiki)
+
+## App Usage
+
+### Web Application (Recommended)
+
+The web UI provides an intuitive interface for uploading documents, chatting with your data, and visualizing your family tree.
+
+**Development Mode** (with hot reload):
+
+```bash
+# Terminal 1: Start the backend
+uv run hypercorn src.backend.app:app --bind 0.0.0.0:5001 --reload
+
+# Terminal 2: Start the frontend dev server
+cd src/frontend
+npm install  # First time only
+npm run dev
+```
+
+Then open `http://localhost:5173` in your browser.
+
+**Production Mode** (single server):
+
+```bash
+# Build the frontend
+cd src/frontend
+npm install && npm run build
+cd ../..
+
+# Start the backend (serves frontend + API)
+uv run hypercorn src.backend.app:app --bind 0.0.0.0:5001
+```
+
+Then open `http://localhost:5001` in your browser.
 
 ### CLI Workflow
 
@@ -124,11 +174,13 @@ geneai ingest originals/*.pdf originals/*.jpg
 Supported file types: `.pdf`, `.png`, `.jpg`, `.jpeg`, `.tiff`, `.tif`, `.bmp`, `.txt`
 
 2. **Extract Entities**
+
 ```bash
 geneai extract
 ```
 
 3. **Reconcile Duplicates**
+
 ```bash
 # Interactive reconciliation
 geneai reconcile
@@ -141,11 +193,13 @@ geneai reconcile --auto-approve --auto-threshold 0.95
 ```
 
 4. **Query Family Tree**
+
 ```bash
 geneai tree --person "John Byrne"
 ```
 
 5. **Export Data**
+
 ```bash
 geneai export family_tree.ged
 ```
@@ -153,7 +207,7 @@ geneai export family_tree.ged
 ### CLI Commands
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `geneai ingest <files> --recursive` | Import scanned documents (recursively process directories) |
 | `geneai extract` | Extract entities from ingested documents using AI |
 | `geneai reconcile [--auto-approve] [--auto-threshold 0.95]` | Find and merge duplicate people with human approval |
@@ -165,7 +219,7 @@ geneai export family_tree.ged
 
 ## Architecture
 
-```
+```text
 Scanned Documents (PDF/Images)
         ↓
     OCR Layer (Tesseract/PaddleOCR)
@@ -199,7 +253,14 @@ Parallel: Text → Embeddings → Vector DB (ChromaDB)
    - Semantic search
    - Never stores canonical facts
 
-See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed design.
+See [docs/STORAGE_OVERVIEW.md](docs/STORAGE_OVERVIEW.md) for detailed storage architecture.
+
+## Documentation
+
+- **[Quick Start Guide](docs/QUICKSTART.md)** - Detailed setup and first steps
+- **[Storage Overview](docs/STORAGE_OVERVIEW.md)** - How data is stored and organized
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
+- **[UI Plan](UI_PLAN.md)** - Web interface design and roadmap
 
 ## Configuration
 
@@ -289,7 +350,7 @@ pytest --cov=genealogy_ai
 
 ## Project Structure
 
-```
+```text
 genealogy-ai/
 ├── src/
 │   ├── backend/
@@ -317,6 +378,7 @@ genealogy-ai/
 ## Roadmap
 
 ### Phase 1: MVP ✅ Complete
+
 - [x] Project setup
 - [x] OCR ingestion (Tesseract, multi-format support)
 - [x] Entity extraction (LLM-powered with confidence scoring)
@@ -326,6 +388,7 @@ genealogy-ai/
 - [x] Complete CLI (ingest, extract, reconcile, tree, export, search, stats)
 
 ### Phase 2: Accuracy & UI 🚧 In Progress
+
 - [x] Confidence thresholds (auto-approve with configurable threshold)
 - [x] Web interface foundation (Quart backend + Vite/React frontend)
 - [ ] File upload interface
@@ -335,6 +398,7 @@ genealogy-ai/
 - [ ] Improved reconciliation
 
 ### Phase 3: Cloud (Optional)
+
 - [ ] Azure AI Vision adapter
 - [ ] Azure AI Search adapter
 - [ ] Cloud deployment guide
