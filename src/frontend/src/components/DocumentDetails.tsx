@@ -148,7 +148,7 @@ export default function DocumentDetails({ documentId, onClose }: DocumentDetails
                 <h3>Original Document</h3>
                 <div className="document-viewer">
                   <iframe
-                    src={`/api/documents/${documentId}/file`}
+                    src={`/api/documents/${documentId}/file?t=${encodeURIComponent(details.created_at)}`}
                     title="Original Document"
                     className="document-iframe"
                   />

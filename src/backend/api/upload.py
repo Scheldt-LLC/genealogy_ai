@@ -37,6 +37,16 @@ async def upload_file() -> Response | tuple[Response, int]:
     Accepts multipart/form-data with file upload.
     Saves file to upload folder and triggers OCR processing.
 
+    Form parameters:
+        - file: Document file to upload (required)
+        - engine: OCR engine ("tesseract" or "azure", default: "tesseract")
+        - azure_key: Azure Document Intelligence key (optional)
+        - azure_endpoint: Azure Document Intelligence endpoint (optional)
+        - openai_key: OpenAI API key (optional)
+        - document_type: Document type (e.g., "census", "portrait", optional)
+        - family_name: Family name to assign to extracted people (optional)
+        - family_side: Family side - "maternal" or "paternal" (optional)
+
     Returns:
         JSON response with document ID and status
     """
@@ -53,6 +63,9 @@ async def upload_file() -> Response | tuple[Response, int]:
         "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"
     )
     openai_key = form.get("openai_key") or current_app.config.get("OPENAI_API_KEY")
+    document_type = form.get("document_type")
+    family_name = form.get("family_name")
+    family_side = form.get("family_side")
 
     if not file.filename:
         return jsonify({"error": "No file selected"}), 400
@@ -111,6 +124,10 @@ async def upload_file() -> Response | tuple[Response, int]:
             if doc:
                 document_ids.append(doc.id)
 
+                # Set document type if provided
+                if document_type and doc.id:
+                    db.update_document_type(document_id=doc.id, document_type=document_type)
+
         # Step 3: Entity Extraction
         total_people = 0
         total_events = 0
@@ -129,7 +146,12 @@ async def upload_file() -> Response | tuple[Response, int]:
 
                 # Store extraction results
                 if not extraction_result.is_empty():
-                    counts = db.store_extraction(extraction_result, doc_id)
+                    counts = db.store_extraction(
+                        extraction_result,
+                        doc_id,
+                        family_name=family_name,
+                        family_side=family_side,
+                    )
                     total_people += counts["people"]
                     total_events += counts["events"]
                     total_relationships += counts["relationships"]
@@ -185,6 +207,9 @@ async def upload_file() -> Response | tuple[Response, int]:
                 "document_ids": document_ids,
                 "filename": original_filename,
                 "page_count": len(ocr_results),
+                "document_type": document_type,
+                "family_name": family_name,
+                "family_side": family_side,
                 "entities_extracted": {
                     "people": total_people,
                     "events": total_events,

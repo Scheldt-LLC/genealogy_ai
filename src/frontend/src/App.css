@@ -52,6 +52,26 @@
   color: #ffb74d;
 }
 
+.theme-toggle {
+  background: transparent;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 36px;
+}
+
+.theme-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: #666;
+}
+
 .key-input-overlay {
   position: absolute;
   top: 100%;
@@ -123,15 +143,8 @@
   display: flex;
   gap: 0.5rem;
   padding: 1rem 2rem;
-  background-color: #f5f5f5;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-@media (prefers-color-scheme: dark) {
-  .app-nav {
-    background-color: #242424;
-    border-bottom-color: #333;
-  }
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .nav-tab {
@@ -141,18 +154,18 @@
   border-bottom: 2px solid transparent;
   font-size: 1rem;
   font-weight: 500;
-  color: #666;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .nav-tab:hover {
-  color: #333;
+  color: var(--text-primary);
 }
 
 .nav-tab.active {
-  color: #646cff;
-  border-bottom-color: #646cff;
+  color: var(--accent-color);
+  border-bottom-color: var(--accent-color);
 }
 
 main {

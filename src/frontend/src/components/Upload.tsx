@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, DragEvent, ChangeEvent } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import type { DragEvent, ChangeEvent } from 'react'
 import './Upload.css'
 import DocumentDetails from './DocumentDetails'
 
@@ -8,6 +9,15 @@ interface Document {
   file_path: string
   page_count: number
   created_at: string | null
+  document_type: string | null
+}
+
+interface Family {
+  family_name: string
+  person_count: number
+  paternal_count: number
+  maternal_count: number
+  unspecified_count: number
 }
 
 interface UploadResponse {
@@ -23,6 +33,8 @@ interface UploadResponse {
   duplicates_merged: number
   chunks_stored: number
   message: string
+  family_name?: string
+  family_side?: string
 }
 
 interface FileProgress {
@@ -46,6 +58,11 @@ export default function Upload() {
   const [saveToSession, setSaveToSession] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isAzureConfiguredOnServer, setIsAzureConfiguredOnServer] = useState(false)
+  const [documentType, setDocumentType] = useState<string>('')
+  const [families, setFamilies] = useState<Family[]>([])
+  const [selectedFamily, setSelectedFamily] = useState<string>('')
+  const [newFamilyName, setNewFamilyName] = useState<string>('')
+  const [familySide, setFamilySide] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchDocuments = async () => {
@@ -70,10 +87,23 @@ export default function Upload() {
     }
   }
 
+  const fetchFamilies = async () => {
+    try {
+      const response = await fetch('/api/families')
+      const data = await response.json()
+      if (data.success) {
+        setFamilies(data.families)
+      }
+    } catch (err) {
+      console.error('Failed to fetch families:', err)
+    }
+  }
+
   // Load documents and session settings on mount
   useEffect(() => {
     fetchDocuments()
     fetchConfig()
+    fetchFamilies()
 
     const savedKey = sessionStorage.getItem('azure_key')
     const savedEndpoint = sessionStorage.getItem('azure_endpoint')
@@ -151,7 +181,7 @@ export default function Upload() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('engine', ocrEngine)
-      
+
       // Add Azure credentials if using Azure engine
       if (ocrEngine === 'azure') {
         if (azureKey) formData.append('azure_key', azureKey)
@@ -164,6 +194,20 @@ export default function Upload() {
         formData.append('openai_key', sessionOpenAIKey)
       }
 
+      // Add document type if selected
+      if (documentType) {
+        formData.append('document_type', documentType)
+      }
+
+      // Add family assignment if selected
+      const familyToUse = selectedFamily === 'new' ? newFamilyName : selectedFamily
+      if (familyToUse) {
+        formData.append('family_name', familyToUse)
+      }
+      if (familySide) {
+        formData.append('family_side', familySide)
+      }
+
       try {
         const response = await fetch('/api/upload', {
           method: 'POST',
@@ -173,7 +217,7 @@ export default function Upload() {
         const data: UploadResponse = await response.json()
 
         if (response.ok && data.success) {
-          const stats = []
+          const stats: string[] = []
           stats.push(`${data.page_count} page${data.page_count !== 1 ? 's' : ''}`)
           if (data.entities_extracted.people > 0) {
             stats.push(`${data.entities_extracted.people} people`)
@@ -183,6 +227,9 @@ export default function Upload() {
           }
           if (data.duplicates_merged > 0) {
             stats.push(`${data.duplicates_merged} duplicate${data.duplicates_merged !== 1 ? 's' : ''} merged`)
+          }
+          if (data.family_name) {
+            stats.push(`family: ${data.family_name}${data.family_side ? ` (${data.family_side})` : ''}`)
           }
 
           // Update status to success
@@ -218,8 +265,9 @@ export default function Upload() {
       }
     }
 
-    // Refresh document list after all uploads
+    // Refresh document list and families after all uploads
     await fetchDocuments()
+    await fetchFamilies()
     setUploading(false)
 
     // Set final success/error message
@@ -390,6 +438,127 @@ export default function Upload() {
         )}
       </div>
 
+      {/* Document Type and Family Assignment */}
+      <div className="upload-metadata">
+        <div className="metadata-section">
+          <h4>Document Information (Optional)</h4>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="documentType">Document Type:</label>
+              <select
+                id="documentType"
+                value={documentType}
+                onChange={(e) => setDocumentType(e.target.value)}
+              >
+                <option value="">-- Select Type --</option>
+                <optgroup label="Vital Records">
+                  <option value="birth_certificate">Birth Certificate</option>
+                  <option value="death_certificate">Death Certificate</option>
+                  <option value="marriage_certificate">Marriage Certificate</option>
+                </optgroup>
+                <optgroup label="Government Records">
+                  <option value="census">Census</option>
+                  <option value="immigration_record">Immigration Record</option>
+                  <option value="military_record">Military Record</option>
+                </optgroup>
+                <optgroup label="Legal Documents">
+                  <option value="will">Will</option>
+                  <option value="deed">Deed</option>
+                  <option value="probate">Probate</option>
+                </optgroup>
+                <optgroup label="Personal">
+                  <option value="portrait">Portrait</option>
+                  <option value="photograph">Photograph</option>
+                  <option value="letter">Letter</option>
+                  <option value="diary">Diary</option>
+                </optgroup>
+                <optgroup label="Other">
+                  <option value="newspaper">Newspaper</option>
+                  <option value="other">Other</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="metadata-section">
+          <h4>Family Assignment (Optional)</h4>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="familyName">Family:</label>
+              <select
+                id="familyName"
+                value={selectedFamily}
+                onChange={(e) => setSelectedFamily(e.target.value)}
+              >
+                <option value="">-- No Family Assignment --</option>
+                {families.map(family => (
+                  <option key={family.family_name} value={family.family_name}>
+                    {family.family_name} ({family.person_count} {family.person_count === 1 ? 'person' : 'people'})
+                  </option>
+                ))}
+                <option value="new">➕ Create New Family</option>
+              </select>
+            </div>
+          </div>
+
+          {selectedFamily === 'new' && (
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="newFamilyName">New Family Name:</label>
+                <input
+                  id="newFamilyName"
+                  type="text"
+                  value={newFamilyName}
+                  onChange={(e) => setNewFamilyName(e.target.value)}
+                  placeholder="e.g., scheldt, byrnes, gilbert"
+                />
+              </div>
+            </div>
+          )}
+
+          {(selectedFamily || selectedFamily === 'new') && (
+            <div className="form-row">
+              <div className="form-group">
+                <label>Family Side:</label>
+                <div className="radio-group">
+                  <label>
+                    <input
+                      type="radio"
+                      name="familySide"
+                      value=""
+                      checked={familySide === ''}
+                      onChange={(e) => setFamilySide(e.target.value)}
+                    />
+                    Not specified
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="familySide"
+                      value="paternal"
+                      checked={familySide === 'paternal'}
+                      onChange={(e) => setFamilySide(e.target.value)}
+                    />
+                    Paternal
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="familySide"
+                      value="maternal"
+                      checked={familySide === 'maternal'}
+                      onChange={(e) => setFamilySide(e.target.value)}
+                    />
+                    Maternal
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Upload Area */}
       <div
         className={`upload-area ${dragActive ? 'drag-active' : ''}`}
@@ -410,10 +579,11 @@ export default function Upload() {
         <div className="upload-content">
           {uploading ? (
             <>
-              <p className="upload-icon">⚙️</p>
-              <p>Processing document...</p>
+              <p className="upload-icon spinning">⚙️</p>
+              <p><strong>Processing documents...</strong></p>
               <p className="upload-hint">
-                Running OCR, extracting entities, and building family tree
+                This may take a few minutes for PDFs and images.<br />
+                Running OCR, extracting people/events, and building family tree.
               </p>
             </>
           ) : (
@@ -435,7 +605,7 @@ export default function Upload() {
           <div className="queue-list">
             {uploadQueue.map((file, idx) => (
               <div key={idx} className={`queue-item queue-item-${file.status}`}>
-                <div className="queue-icon">
+                <div className={`queue-icon ${file.status === 'uploading' ? 'spinning' : ''}`}>
                   {file.status === 'pending' && '⏳'}
                   {file.status === 'uploading' && '⚙️'}
                   {file.status === 'success' && '✅'}
@@ -443,6 +613,9 @@ export default function Upload() {
                 </div>
                 <div className="queue-info">
                   <div className="queue-filename">{file.name}</div>
+                  {file.status === 'uploading' && !file.message && (
+                    <div className="queue-message">Processing: OCR → Entity extraction → Building tree...</div>
+                  )}
                   {file.message && (
                     <div className="queue-message">{file.message}</div>
                   )}
@@ -486,7 +659,14 @@ export default function Upload() {
             {documents.map((doc) => (
               <div key={doc.id} className="document-card">
                 <div className="document-info">
-                  <div className="document-name">{doc.filename}</div>
+                  <div className="document-name">
+                    {doc.filename}
+                    {doc.document_type && (
+                      <span className="document-type-badge">
+                        {doc.document_type.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
                   <span className="document-meta">
                     {doc.page_count} page{doc.page_count !== 1 ? 's' : ''}
                     {doc.created_at && (

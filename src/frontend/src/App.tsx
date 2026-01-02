@@ -17,6 +17,7 @@ interface ConfigResponse {
 }
 
 type Tab = 'upload' | 'chat' | 'tree'
+type Theme = 'light' | 'dark' | 'system'
 
 function App() {
   const [apiStatus, setApiStatus] = useState<HealthResponse | null>(null)
@@ -25,6 +26,10 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('upload')
   const [openaiKey, setOpenaiKey] = useState<string>('')
   const [showKeyInput, setShowKeyInput] = useState(false)
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem('theme') as Theme | null
+    return saved || 'system'
+  })
 
   useEffect(() => {
     // Test API connection
@@ -43,6 +48,27 @@ function App() {
     const savedKey = sessionStorage.getItem('openai_api_key')
     if (savedKey) setOpenaiKey(savedKey)
   }, [])
+
+  // Apply theme
+  useEffect(() => {
+    const root = document.documentElement
+
+    if (theme === 'system') {
+      root.removeAttribute('data-theme')
+    } else {
+      root.setAttribute('data-theme', theme)
+    }
+
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const cycleTheme = () => {
+    setTheme((current) => {
+      if (current === 'system') return 'light'
+      if (current === 'light') return 'dark'
+      return 'system'
+    })
+  }
 
   const handleSaveKey = () => {
     sessionStorage.setItem('openai_api_key', openaiKey)
@@ -70,7 +96,7 @@ function App() {
                 <span>Connecting...</span>
               )}
             </div>
-            
+
             <div className="status openai-status">
               {isOpenAIReady ? (
                 <span className="status-ok">✓ OpenAI Ready</span>
@@ -80,6 +106,12 @@ function App() {
                 </span>
               )}
             </div>
+
+            <button className="theme-toggle" onClick={cycleTheme} title={`Theme: ${theme}`}>
+              {theme === 'light' && '☀️'}
+              {theme === 'dark' && '🌙'}
+              {theme === 'system' && '💻'}
+            </button>
           </div>
         </div>
 

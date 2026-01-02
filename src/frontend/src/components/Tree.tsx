@@ -18,6 +18,8 @@ interface Person {
   birth_place: string | null
   death_date: string | null
   death_place: string | null
+  family_name: string | null
+  family_side: string | null
 }
 
 interface Relationship {
@@ -39,6 +41,14 @@ interface PersonOption {
   birth_year: number | null
 }
 
+interface Family {
+  family_name: string
+  person_count: number
+  paternal_count: number
+  maternal_count: number
+  unspecified_count: number
+}
+
 export default function Tree() {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
@@ -46,6 +56,8 @@ export default function Tree() {
   const [error, setError] = useState<string | null>(null)
   const [people, setPeople] = useState<PersonOption[]>([])
   const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null)
+  const [families, setFamilies] = useState<Family[]>([])
+  const [selectedFamily, setSelectedFamily] = useState<string | null>(null)
 
   const fetchPeopleList = async () => {
     try {
@@ -60,12 +72,29 @@ export default function Tree() {
     }
   }
 
-  const fetchTreeData = async (personId?: number) => {
+  const fetchFamilies = async () => {
+    try {
+      const response = await fetch('/api/families')
+      const data = await response.json()
+
+      if (data.success) {
+        setFamilies(data.families)
+      }
+    } catch (err) {
+      console.error('Failed to fetch families:', err)
+    }
+  }
+
+  const fetchTreeData = async (personId?: number, familyName?: string) => {
     setLoading(true)
     setError(null)
 
     try {
-      const url = personId ? `/api/tree?person_id=${personId}` : '/api/tree'
+      const params = new URLSearchParams()
+      if (personId) params.append('person_id', personId.toString())
+      if (familyName) params.append('family_name', familyName)
+
+      const url = params.toString() ? `/api/tree?${params.toString()}` : '/api/tree'
       const response = await fetch(url)
       const data: TreeData = await response.json()
 
@@ -212,17 +241,26 @@ export default function Tree() {
 
   useEffect(() => {
     fetchPeopleList()
+    fetchFamilies()
     fetchTreeData()
   }, [])
+
+  const handleFamilySelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const familyName = event.target.value || null
+    setSelectedFamily(familyName)
+    setSelectedPersonId(null) // Clear person selection when family changes
+    fetchTreeData(undefined, familyName || undefined)
+  }
 
   const handlePersonSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const personId = event.target.value ? parseInt(event.target.value) : null
     setSelectedPersonId(personId)
-    fetchTreeData(personId || undefined)
+    fetchTreeData(personId || undefined, selectedFamily || undefined)
   }
 
   const handleShowAll = () => {
     setSelectedPersonId(null)
+    setSelectedFamily(null)
     fetchTreeData()
   }
 
@@ -257,6 +295,21 @@ export default function Tree() {
     <div className="tree-container">
       <div className="tree-controls">
         <div className="tree-filter">
+          <label htmlFor="family-select">Filter by family:</label>
+          <select
+            id="family-select"
+            value={selectedFamily || ''}
+            onChange={handleFamilySelect}
+          >
+            <option value="">All families</option>
+            {families.map(family => (
+              <option key={family.family_name} value={family.family_name}>
+                {family.family_name} ({family.person_count} {family.person_count === 1 ? 'person' : 'people'})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="tree-filter">
           <label htmlFor="person-select">Focus on person:</label>
           <select
             id="person-select"
@@ -270,7 +323,7 @@ export default function Tree() {
               </option>
             ))}
           </select>
-          {selectedPersonId && (
+          {(selectedPersonId || selectedFamily) && (
             <button onClick={handleShowAll} className="show-all-btn">
               Show All
             </button>

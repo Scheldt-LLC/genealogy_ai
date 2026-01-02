@@ -313,3 +313,95 @@ async def update_document_text(document_id: int) -> Response | tuple[Response, i
 
         traceback.print_exc()
         return jsonify({"error": f"Failed to update document text: {e!s}"}), 500
+
+
+@documents_bp.route("/api/documents/<int:document_id>/type", methods=["POST"])
+async def set_document_type(document_id: int) -> Response | tuple[Response, int]:
+    """Set or change the document type.
+
+    Args:
+        document_id: ID of the document
+
+    Body:
+        - document_type: Type of document (e.g., "census", "portrait", "birth_certificate")
+
+    Returns:
+        JSON with success status
+    """
+    try:
+        data = await request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        document_type = data.get("document_type")
+        if not document_type:
+            return jsonify({"error": "document_type is required"}), 400
+
+        db_path = Path(current_app.config.get("DB_PATH", "./genealogy.db"))
+        db = GenealogyDatabase(db_path=db_path)
+
+        db.update_document_type(document_id=document_id, document_type=document_type)
+
+        return jsonify(
+            {
+                "success": True,
+                "message": f"Document {document_id} type set to '{document_type}'",
+            }
+        ), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to set document type: {e!s}"}), 500
+
+
+@documents_bp.route("/api/documents/<int:document_id>/people", methods=["GET"])
+async def get_document_people(document_id: int) -> Response | tuple[Response, int]:
+    """Get all people linked to a document.
+
+    Args:
+        document_id: ID of the document
+
+    Query parameters:
+        - link_type: Optional filter by link type (e.g., "extracted_from", "portrait_of")
+
+    Returns:
+        JSON with list of linked people
+    """
+    try:
+        link_type = request.args.get("link_type", type=str)
+
+        db_path = Path(current_app.config.get("DB_PATH", "./genealogy.db"))
+        db = GenealogyDatabase(db_path=db_path)
+
+        people = db.get_document_people(document_id=document_id, link_type=link_type)
+
+        people_data = [
+            {
+                "person_id": person["person_id"],
+                "name": person["name"],
+                "link_type": person["link_type"],
+                "notes": person["notes"],
+                "family_name": person["family_name"],
+                "family_side": person["family_side"],
+            }
+            for person in people
+        ]
+
+        return jsonify(
+            {
+                "success": True,
+                "document_id": document_id,
+                "people": people_data,
+                "count": len(people_data),
+            }
+        ), 200
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to get document people: {e!s}"}), 500
