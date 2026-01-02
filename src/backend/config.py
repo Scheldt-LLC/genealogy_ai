@@ -27,6 +27,10 @@ class Config:
     CHROMA_DIR = Path("./chroma_db")
     OCR_OUTPUT_DIR = Path("./ocr_output")
 
+    # Azure AI Document Intelligence
+    AZURE_DOCUMENT_INTELLIGENCE_KEY = None  # Set via env var
+    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = None  # Set via env var
+
     # Processing settings
     CHUNK_SIZE = 1000
     CHUNK_OVERLAP = 200

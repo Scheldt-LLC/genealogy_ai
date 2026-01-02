@@ -30,6 +30,34 @@
   border-bottom: 1px solid #e0e0e0;
 }
 
+@media (prefers-color-scheme: dark) {
+  .tree-controls {
+    background-color: #242424;
+    border-bottom-color: #333;
+  }
+  .tree-filter label {
+    color: #eee;
+  }
+  .tree-filter select {
+    background-color: #1a1a1a;
+    border-color: #444;
+    color: white;
+  }
+  .tree-view {
+    background-color: #1a1a1a;
+  }
+  .person-node {
+    background-color: #2d2d2d;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  .person-name {
+    color: #fff;
+  }
+  .person-dates {
+    color: #aaa;
+  }
+}
+
 .tree-filter {
   display: flex;
   align-items: center;

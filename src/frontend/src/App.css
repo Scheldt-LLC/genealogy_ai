@@ -30,6 +30,13 @@
   border-bottom: 1px solid #e0e0e0;
 }
 
+@media (prefers-color-scheme: dark) {
+  .app-nav {
+    background-color: #242424;
+    border-bottom-color: #333;
+  }
+}
+
 .nav-tab {
   padding: 0.75rem 1.5rem;
   background-color: transparent;

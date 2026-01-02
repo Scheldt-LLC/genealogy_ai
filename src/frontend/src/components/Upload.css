@@ -4,6 +4,96 @@
   padding: 2rem;
 }
 
+.ocr-settings {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ocr-settings {
+    background-color: #2d2d2d;
+    border-color: #444;
+  }
+}
+
+.engine-toggle {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.engine-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.azure-credentials {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #dee2e6;
+}
+
+@media (prefers-color-scheme: dark) {
+  .azure-credentials {
+    border-top-color: #444;
+  }
+}
+
+.advanced-toggle {
+  background: none;
+  border: none;
+  color: #646cff;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.875rem;
+}
+
+.credentials-form {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.form-group input {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .form-group input {
+    background-color: #1a1a1a;
+    border-color: #444;
+    color: white;
+  }
+}
+
+.credential-hint {
+  font-size: 0.75rem;
+  color: #666;
+  font-style: italic;
+  margin: 0;
+}
+
 .upload-area {
   border: 2px dashed #ccc;
   border-radius: 8px;
@@ -13,6 +103,13 @@
   transition: all 0.3s ease;
   background-color: #fafafa;
   margin-bottom: 2rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .upload-area {
+    background-color: #1a1a1a;
+    border-color: #444;
+  }
 }
 
 .upload-area:hover {
@@ -45,12 +142,27 @@
   margin-top: 0.5rem;
 }
 
+@media (prefers-color-scheme: dark) {
+  .upload-hint,
+  .queue-message,
+  .no-documents {
+    color: #aaa;
+  }
+}
+
 .upload-queue {
   background-color: #f9f9f9;
   border: 1px solid #e0e0e0;
   border-radius: 6px;
   padding: 1rem;
   margin-bottom: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .upload-queue {
+    background-color: #2d2d2d;
+    border-color: #444;
+  }
 }
 
 .upload-queue h4 {
@@ -75,6 +187,12 @@
   background-color: white;
   border-radius: 4px;
   border-left: 3px solid transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .queue-item {
+    background-color: #1a1a1a;
+  }
 }
 
 .queue-item-pending {
@@ -112,6 +230,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .queue-filename {
+    color: #eee;
+  }
 }
 
 .queue-message {
@@ -152,6 +276,12 @@
 .documents-header h3 {
   margin: 0;
   color: #333;
+}
+
+@media (prefers-color-scheme: dark) {
+  .documents-header h3 {
+    color: #eee;
+  }
 }
 
 .reset-button {
@@ -198,6 +328,14 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .document-card {
+    background-color: #2d2d2d;
+    border-color: #444;
+    color: #eee;
+  }
 }
 
 .document-card:hover {
@@ -269,6 +407,15 @@
 .document-name {
   color: #1a1a1a;
   font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  .document-name {
+    color: #eee;
+  }
+  .document-meta {
+    color: #aaa;
+  }
 }
 
 .document-meta {

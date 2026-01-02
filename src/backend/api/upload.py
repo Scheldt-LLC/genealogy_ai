@@ -41,11 +41,17 @@ async def upload_file() -> Response | tuple[Response, int]:
         JSON response with document ID and status
     """
     files = await request.files
+    form = await request.form
 
     if "file" not in files:
         return jsonify({"error": "No file provided"}), 400
 
     file = files["file"]
+    engine = form.get("engine", "tesseract")
+    azure_key = form.get("azure_key") or current_app.config.get("AZURE_DOCUMENT_INTELLIGENCE_KEY")
+    azure_endpoint = form.get("azure_endpoint") or current_app.config.get(
+        "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"
+    )
 
     if not file.filename:
         return jsonify({"error": "No file selected"}), 400
@@ -70,7 +76,12 @@ async def upload_file() -> Response | tuple[Response, int]:
     try:
         # Step 1: OCR Processing
         ocr_output_dir = Path(current_app.config.get("OCR_OUTPUT_DIR", "./ocr_output"))
-        ocr_processor = OCRProcessor(output_dir=ocr_output_dir)
+        ocr_processor = OCRProcessor(
+            output_dir=ocr_output_dir,
+            engine=engine,
+            azure_key=azure_key,
+            azure_endpoint=azure_endpoint,
+        )
         ocr_results = ocr_processor.process_document(file_path)
 
         # Step 2: Save to database (one record per page)

@@ -40,6 +40,10 @@ export default function Upload() {
   const [deleting, setDeleting] = useState<number | null>(null)
   const [uploadQueue, setUploadQueue] = useState<FileProgress[]>([])
   const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null)
+  const [ocrEngine, setOcrEngine] = useState<'tesseract' | 'azure'>('tesseract')
+  const [azureKey, setAzureKey] = useState('')
+  const [azureEndpoint, setAzureEndpoint] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchDocuments = async () => {
@@ -116,6 +120,11 @@ export default function Upload() {
 
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('engine', ocrEngine)
+      if (ocrEngine === 'azure') {
+        if (azureKey) formData.append('azure_key', azureKey)
+        if (azureEndpoint) formData.append('azure_endpoint', azureEndpoint)
+      }
 
       try {
         const response = await fetch('/api/upload', {
@@ -258,6 +267,72 @@ export default function Upload() {
   return (
     <div className="upload-container">
       <h2>Upload Documents</h2>
+
+      {/* OCR Engine Selection */}
+      <div className="ocr-settings">
+        <div className="engine-toggle">
+          <label>
+            <input
+              type="radio"
+              name="engine"
+              value="tesseract"
+              checked={ocrEngine === 'tesseract'}
+              onChange={() => setOcrEngine('tesseract')}
+            />
+            Standard OCR (Free)
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="engine"
+              value="azure"
+              checked={ocrEngine === 'azure'}
+              onChange={() => setOcrEngine('azure')}
+            />
+            Advanced OCR (Azure AI)
+          </label>
+        </div>
+
+        {ocrEngine === 'azure' && (
+          <div className="azure-credentials">
+            <button 
+              type="button" 
+              className="advanced-toggle"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              {showAdvanced ? 'Hide' : 'Show'} Azure Credentials
+            </button>
+            
+            {showAdvanced && (
+              <div className="credentials-form">
+                <div className="form-group">
+                  <label htmlFor="azureKey">API Key:</label>
+                  <input
+                    id="azureKey"
+                    type="password"
+                    value={azureKey}
+                    onChange={(e) => setAzureKey(e.target.value)}
+                    placeholder="Enter Azure AI Document Intelligence Key"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="azureEndpoint">Endpoint:</label>
+                  <input
+                    id="azureEndpoint"
+                    type="text"
+                    value={azureEndpoint}
+                    onChange={(e) => setAzureEndpoint(e.target.value)}
+                    placeholder="https://your-resource.cognitiveservices.azure.com/"
+                  />
+                </div>
+                <p className="credential-hint">
+                  Leave blank to use server-side environment variables.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Upload Area */}
       <div
