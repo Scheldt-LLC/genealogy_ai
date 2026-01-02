@@ -22,11 +22,14 @@ This project adheres to a Code of Conduct. By participating, you are expected to
 
 1. Fork the repository on GitHub
 2. Clone your fork locally:
+
    ```bash
    git clone https://github.com/your-username/genealogy-ai.git
    cd genealogy-ai
    ```
+
 3. Add the upstream repository:
+
    ```bash
    git remote add upstream https://github.com/Scheldt-LLC/genealogy-ai.git
    ```
@@ -43,11 +46,13 @@ This project adheres to a Code of Conduct. By participating, you are expected to
 ### Installation
 
 1. Install uv (if not already installed):
+
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
 2. Create a virtual environment and install dependencies:
+
    ```bash
    uv venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
@@ -55,11 +60,13 @@ This project adheres to a Code of Conduct. By participating, you are expected to
    ```
 
 3. Install pre-commit hooks:
+
    ```bash
    pre-commit install
    ```
 
 4. Verify your setup:
+
    ```bash
    pytest
    ruff check .
@@ -80,6 +87,7 @@ Before creating bug reports, please check existing issues to avoid duplicates. W
 - Note your environment (OS, Python version, etc.)
 
 **Bug Report Template:**
+
 ```markdown
 **Description**
 A clear description of the bug.
@@ -122,6 +130,7 @@ Unsure where to begin? Look for issues labeled:
 ### Pull Requests
 
 1. Create a new branch for your feature:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -131,11 +140,13 @@ Unsure where to begin? Look for issues labeled:
 3. Write or update tests as needed
 
 4. Ensure all tests pass:
+
    ```bash
    pytest
    ```
 
 5. Run linting and formatting:
+
    ```bash
    ruff format .
    ruff check .
@@ -145,6 +156,7 @@ Unsure where to begin? Look for issues labeled:
 6. Commit your changes with a meaningful message (see [Commit Guidelines](#commit-message-guidelines))
 
 7. Push to your fork:
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -316,7 +328,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 
 ### Format
 
-```
+```text
 <type>(<scope>): <subject>
 
 <body>
@@ -338,7 +350,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 
 ### Examples
 
-```
+```text
 feat(extraction): add support for handwritten dates
 
 Implement fuzzy date parsing to handle common handwriting variations
@@ -348,7 +360,7 @@ patterns for genealogical documents.
 Closes #42
 ```
 
-```
+```text
 fix(ocr): handle rotated pages correctly
 
 The OCR engine was failing on rotated scanned pages. Added automatic
@@ -357,7 +369,7 @@ rotation detection using pytesseract's OSD (Orientation and Script Detection).
 Fixes #38
 ```
 
-```
+```text
 docs(readme): update installation instructions for uv
 
 Replaced pip installation instructions with uv-based setup.
@@ -425,6 +437,7 @@ Closes #(issue number)
 
 - Delete your feature branch
 - Update your local main:
+
   ```bash
   git checkout main
   git pull upstream main
