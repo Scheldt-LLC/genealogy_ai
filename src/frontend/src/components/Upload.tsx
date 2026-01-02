@@ -43,7 +43,9 @@ export default function Upload() {
   const [ocrEngine, setOcrEngine] = useState<'tesseract' | 'azure'>('tesseract')
   const [azureKey, setAzureKey] = useState('')
   const [azureEndpoint, setAzureEndpoint] = useState('')
+  const [saveToSession, setSaveToSession] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [isAzureConfiguredOnServer, setIsAzureConfiguredOnServer] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchDocuments = async () => {
@@ -58,10 +60,38 @@ export default function Upload() {
     }
   }
 
-  // Load documents on mount
+  const fetchConfig = async () => {
+    try {
+      const response = await fetch('/api/config')
+      const data = await response.json()
+      setIsAzureConfiguredOnServer(data.azure_configured)
+    } catch (err) {
+      console.error('Failed to fetch config:', err)
+    }
+  }
+
+  // Load documents and session settings on mount
   useEffect(() => {
     fetchDocuments()
+    fetchConfig()
+
+    const savedKey = sessionStorage.getItem('azure_key')
+    const savedEndpoint = sessionStorage.getItem('azure_endpoint')
+    if (savedKey) setAzureKey(savedKey)
+    if (savedEndpoint) setAzureEndpoint(savedEndpoint)
+    if (savedKey || savedEndpoint) setSaveToSession(true)
   }, [])
+
+  // Update session storage when settings change
+  useEffect(() => {
+    if (saveToSession) {
+      sessionStorage.setItem('azure_key', azureKey)
+      sessionStorage.setItem('azure_endpoint', azureEndpoint)
+    } else {
+      sessionStorage.removeItem('azure_key')
+      sessionStorage.removeItem('azure_endpoint')
+    }
+  }, [azureKey, azureEndpoint, saveToSession])
 
   const handleDrag = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -121,9 +151,17 @@ export default function Upload() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('engine', ocrEngine)
+      
+      // Add Azure credentials if using Azure engine
       if (ocrEngine === 'azure') {
         if (azureKey) formData.append('azure_key', azureKey)
         if (azureEndpoint) formData.append('azure_endpoint', azureEndpoint)
+      }
+
+      // Add OpenAI key from session storage if available
+      const sessionOpenAIKey = sessionStorage.getItem('openai_api_key')
+      if (sessionOpenAIKey) {
+        formData.append('openai_key', sessionOpenAIKey)
       }
 
       try {
@@ -295,40 +333,58 @@ export default function Upload() {
 
         {ocrEngine === 'azure' && (
           <div className="azure-credentials">
-            <button 
-              type="button" 
-              className="advanced-toggle"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-            >
-              {showAdvanced ? 'Hide' : 'Show'} Azure Credentials
-            </button>
-            
-            {showAdvanced && (
-              <div className="credentials-form">
-                <div className="form-group">
-                  <label htmlFor="azureKey">API Key:</label>
-                  <input
-                    id="azureKey"
-                    type="password"
-                    value={azureKey}
-                    onChange={(e) => setAzureKey(e.target.value)}
-                    placeholder="Enter Azure AI Document Intelligence Key"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="azureEndpoint">Endpoint:</label>
-                  <input
-                    id="azureEndpoint"
-                    type="text"
-                    value={azureEndpoint}
-                    onChange={(e) => setAzureEndpoint(e.target.value)}
-                    placeholder="https://your-resource.cognitiveservices.azure.com/"
-                  />
-                </div>
-                <p className="credential-hint">
-                  Leave blank to use server-side environment variables.
-                </p>
-              </div>
+            {!isAzureConfiguredOnServer ? (
+              <>
+                <button 
+                  type="button" 
+                  className="advanced-toggle"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                >
+                  {showAdvanced ? 'Hide' : 'Show'} Azure Credentials
+                </button>
+                
+                {showAdvanced && (
+                  <div className="credentials-form">
+                    <div className="form-group">
+                      <label htmlFor="azureKey">API Key:</label>
+                      <input
+                        id="azureKey"
+                        type="password"
+                        value={azureKey}
+                        onChange={(e) => setAzureKey(e.target.value)}
+                        placeholder="Enter Azure AI Document Intelligence Key"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="azureEndpoint">Endpoint:</label>
+                      <input
+                        id="azureEndpoint"
+                        type="text"
+                        value={azureEndpoint}
+                        onChange={(e) => setAzureEndpoint(e.target.value)}
+                        placeholder="https://your-resource.cognitiveservices.azure.com/"
+                      />
+                    </div>
+                    <div className="form-group checkbox-group">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={saveToSession}
+                          onChange={(e) => setSaveToSession(e.target.checked)}
+                        />
+                        Save to session (wiped when tab closes)
+                      </label>
+                    </div>
+                    <p className="credential-hint">
+                      Leave blank to use server-side environment variables.
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="credential-status success">
+                ✅ Azure AI is configured on the server.
+              </p>
             )}
           </div>
         )}

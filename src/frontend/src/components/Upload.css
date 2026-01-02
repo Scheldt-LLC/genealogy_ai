@@ -73,6 +73,18 @@
   font-weight: 600;
 }
 
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.checkbox-group input {
+  width: auto;
+}
+
 .form-group input {
   padding: 0.5rem;
   border: 1px solid #ccc;
@@ -92,6 +104,25 @@
   color: #666;
   font-style: italic;
   margin: 0;
+}
+
+.credential-status {
+  font-size: 0.875rem;
+  margin: 0;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.credential-status.success {
+  color: #28a745;
+  background-color: rgba(40, 167, 69, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .credential-status.success {
+    color: #2fb344;
+    background-color: rgba(47, 179, 68, 0.1);
+  }
 }
 
 .upload-area {

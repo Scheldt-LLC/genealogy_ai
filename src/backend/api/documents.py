@@ -120,9 +120,20 @@ async def get_document_file(document_id: int) -> Response | tuple[Response, int]
         if not file_path.exists():
             return jsonify({"error": "File not found on disk"}), 404
 
+        # Determine mimetype
+        mimetype = None
+        suffix = file_path.suffix.lower()
+        if suffix == ".pdf":
+            mimetype = "application/pdf"
+        elif suffix in {".png", ".jpg", ".jpeg", ".tiff", ".tif", ".bmp"}:
+            mimetype = f"image/{suffix[1:] if suffix != '.jpg' else 'jpeg'}"
+        elif suffix == ".txt":
+            mimetype = "text/plain"
+
         # Send the file
         return await send_file(
             file_path,
+            mimetype=mimetype,
             as_attachment=False,  # Display in browser if possible
             attachment_filename=file_path.name,
         )

@@ -10,12 +10,21 @@ interface HealthResponse {
   version: string
 }
 
+interface ConfigResponse {
+  azure_configured: boolean
+  openai_configured: boolean
+  tesseract_available: boolean
+}
+
 type Tab = 'upload' | 'chat' | 'tree'
 
 function App() {
   const [apiStatus, setApiStatus] = useState<HealthResponse | null>(null)
+  const [config, setConfig] = useState<ConfigResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('upload')
+  const [openaiKey, setOpenaiKey] = useState<string>('')
+  const [showKeyInput, setShowKeyInput] = useState(false)
 
   useEffect(() => {
     // Test API connection
@@ -23,23 +32,75 @@ function App() {
       .then((res) => res.json())
       .then((data: HealthResponse) => setApiStatus(data))
       .catch((err) => setError(err.message))
+
+    // Fetch config
+    fetch('/api/config')
+      .then((res) => res.json())
+      .then((data: ConfigResponse) => setConfig(data))
+      .catch((err) => console.error('Failed to fetch config:', err))
+
+    // Load session key
+    const savedKey = sessionStorage.getItem('openai_api_key')
+    if (savedKey) setOpenaiKey(savedKey)
   }, [])
+
+  const handleSaveKey = () => {
+    sessionStorage.setItem('openai_api_key', openaiKey)
+    setShowKeyInput(false)
+    // We don't need to reload config because this is session-only
+    // but we might want to show a "Key Set" status
+  }
+
+  const isOpenAIReady = config?.openai_configured || !!openaiKey
 
   return (
     <>
       <header className="app-header">
-        <h1>Genealogy AI</h1>
-        <div className="status">
-          {apiStatus ? (
-            <span style={{ color: 'green' }}>
-              ✓ Connected to {apiStatus.service}
-            </span>
-          ) : error ? (
-            <span style={{ color: 'red' }}>✗ {error}</span>
-          ) : (
-            <span>Connecting...</span>
-          )}
+        <div className="header-main">
+          <h1>Genealogy AI</h1>
+          <div className="status-group">
+            <div className="status">
+              {apiStatus ? (
+                <span className="status-ok">
+                  ✓ Connected to {apiStatus.service}
+                </span>
+              ) : error ? (
+                <span className="status-error">✗ {error}</span>
+              ) : (
+                <span>Connecting...</span>
+              )}
+            </div>
+            
+            <div className="status openai-status">
+              {isOpenAIReady ? (
+                <span className="status-ok">✓ OpenAI Ready</span>
+              ) : (
+                <span className="status-warning" onClick={() => setShowKeyInput(!showKeyInput)}>
+                  ⚠ OpenAI Key Missing (Click to fix)
+                </span>
+              )}
+            </div>
+          </div>
         </div>
+
+        {showKeyInput && !config?.openai_configured && (
+          <div className="key-input-overlay">
+            <div className="key-input-container">
+              <h3>OpenAI Configuration</h3>
+              <p>Add <code>OPENAI_API_KEY</code> to your <code>.env</code> file for permanent access, or enter it here for this session only.</p>
+              <input
+                type="password"
+                placeholder="sk-..."
+                value={openaiKey}
+                onChange={(e) => setOpenaiKey(e.target.value)}
+              />
+              <div className="key-input-actions">
+                <button onClick={handleSaveKey}>Save for Session</button>
+                <button className="secondary" onClick={() => setShowKeyInput(false)}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <nav className="app-nav">

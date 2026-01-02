@@ -6,10 +6,15 @@
 .app-header {
   background-color: #1a1a1a;
   padding: 1rem 2rem;
+  border-bottom: 1px solid #333;
+  position: relative;
+}
+
+.header-main {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #333;
+  width: 100%;
 }
 
 .app-header h1 {
@@ -18,8 +23,100 @@
   color: white;
 }
 
-.app-header .status {
+.status-group {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.status {
   font-size: 0.875rem;
+}
+
+.status-ok {
+  color: #4caf50;
+}
+
+.status-error {
+  color: #f44336;
+}
+
+.status-warning {
+  color: #ff9800;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.status-warning:hover {
+  color: #ffb74d;
+}
+
+.key-input-overlay {
+  position: absolute;
+  top: 100%;
+  right: 2rem;
+  z-index: 1000;
+  margin-top: 0.5rem;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.key-input-container {
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 350px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.key-input-container h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+  color: white;
+}
+
+.key-input-container p {
+  font-size: 0.85rem;
+  color: #aaa;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.key-input-container input {
+  width: 100%;
+  padding: 0.75rem;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: white;
+  margin-bottom: 1rem;
+  font-family: monospace;
+}
+
+.key-input-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.key-input-actions button {
+  flex: 1;
+  padding: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.key-input-actions button.secondary {
+  background-color: transparent;
+  border: 1px solid #555;
+}
+
+.key-input-actions button.secondary:hover {
+  border-color: #777;
 }
 
 .app-nav {

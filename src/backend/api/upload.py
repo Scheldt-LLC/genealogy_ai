@@ -52,6 +52,7 @@ async def upload_file() -> Response | tuple[Response, int]:
     azure_endpoint = form.get("azure_endpoint") or current_app.config.get(
         "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"
     )
+    openai_key = form.get("openai_key") or current_app.config.get("OPENAI_API_KEY")
 
     if not file.filename:
         return jsonify({"error": "No file selected"}), 400
@@ -63,13 +64,25 @@ async def upload_file() -> Response | tuple[Response, int]:
             }
         ), 400
 
-    # Secure the filename
-    filename = secure_filename(file.filename)
+    # Secure the filename and make it unique to avoid conflicts
+    import time
+
+    original_filename = secure_filename(file.filename)
+    filename_parts = original_filename.rsplit(".", 1)
+    timestamp = str(int(time.time() * 1000))  # Millisecond timestamp
+
+    if len(filename_parts) == 2:
+        # Has extension
+        unique_filename = f"{filename_parts[0]}_{timestamp}.{filename_parts[1]}"
+    else:
+        # No extension
+        unique_filename = f"{original_filename}_{timestamp}"
+
     upload_folder = Path(current_app.config.get("UPLOAD_FOLDER", "./originals"))
     upload_folder.mkdir(parents=True, exist_ok=True)
 
-    # Save the file
-    file_path = upload_folder / filename
+    # Save the file with unique name
+    file_path = upload_folder / unique_filename
     await file.save(str(file_path))
 
     # Process with full pipeline: OCR → Extract → Reconcile → Vector DB
@@ -104,7 +117,7 @@ async def upload_file() -> Response | tuple[Response, int]:
         total_relationships = 0
 
         try:
-            extractor = EntityExtractor()
+            extractor = EntityExtractor(api_key=openai_key)
 
             for ocr_result, doc_id in zip(ocr_results, document_ids, strict=True):
                 # Extract entities from this page
@@ -170,7 +183,7 @@ async def upload_file() -> Response | tuple[Response, int]:
             {
                 "success": True,
                 "document_ids": document_ids,
-                "filename": filename,
+                "filename": original_filename,
                 "page_count": len(ocr_results),
                 "entities_extracted": {
                     "people": total_people,

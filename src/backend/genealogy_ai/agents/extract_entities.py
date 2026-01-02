@@ -17,12 +17,18 @@ from src.backend.genealogy_ai.schemas import ExtractionResult
 class EntityExtractor:
     """Extract genealogical entities from text using an LLM."""
 
-    def __init__(self, model_name: str | None = None, temperature: float = 0.0):
+    def __init__(
+        self,
+        model_name: str | None = None,
+        temperature: float = 0.0,
+        api_key: str | None = None,
+    ):
         """Initialize the entity extractor.
 
         Args:
             model_name: Optional model name override
             temperature: LLM temperature (0.0 for deterministic, higher for creative)
+            api_key: Optional API key override
         """
         self.model_name = model_name or settings.openai_model
         self.temperature = temperature
@@ -34,11 +40,11 @@ class EntityExtractor:
 
         # Initialize LLM based on provider
         if settings.llm_provider == "openai":
-            api_key = settings.get_api_key()
+            final_api_key = api_key or settings.get_api_key()
             self.llm = ChatOpenAI(
                 model=self.model_name,
                 temperature=self.temperature,
-                api_key=SecretStr(api_key),
+                api_key=SecretStr(final_api_key),
             )
         else:
             raise NotImplementedError(

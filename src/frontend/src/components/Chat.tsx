@@ -52,12 +52,16 @@ export default function Chat() {
     setLoading(true)
 
     try {
+      const sessionOpenAIKey = sessionStorage.getItem('openai_api_key')
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ 
+          question,
+          openai_key: sessionOpenAIKey 
+        }),
       })
 
       const data = await response.json()

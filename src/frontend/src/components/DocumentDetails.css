@@ -100,9 +100,10 @@
 @media (prefers-color-scheme: dark) {
   .document-info-header {
     background-color: #2d2d2d;
+    border: 1px solid #444;
   }
   .info-item {
-    color: #eee;
+    color: #ddd;
   }
   .info-item strong {
     color: #fff;
@@ -110,12 +111,12 @@
 }
 
 .info-item {
-  color: #333;
+  color: #1a1a1a;
   font-size: 0.875rem;
 }
 
 .info-item strong {
-  color: #1a1a1a;
+  color: #000;
   margin-right: 0.5rem;
 }
 

@@ -95,3 +95,26 @@ async def reset_database() -> Response | tuple[Response, int]:
 
         traceback.print_exc()
         return jsonify({"error": f"Failed to reset database: {e!s}"}), 500
+
+
+@management_bp.route("/api/config", methods=["GET"])
+async def get_app_config() -> Response:
+    """Check if external services are configured.
+
+    Returns:
+        JSON response with configuration status
+    """
+    config = current_app.config
+    azure_configured = bool(
+        config.get("AZURE_DOCUMENT_INTELLIGENCE_KEY")
+        and config.get("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
+    )
+    openai_configured = bool(config.get("OPENAI_API_KEY"))
+
+    return jsonify(
+        {
+            "azure_configured": azure_configured,
+            "openai_configured": openai_configured,
+            "tesseract_available": True,
+        }
+    )

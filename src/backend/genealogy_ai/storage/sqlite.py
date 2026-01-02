@@ -15,6 +15,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
@@ -26,9 +27,10 @@ class Document(Base):
     """Source document record."""
 
     __tablename__ = "documents"
+    __table_args__ = (UniqueConstraint("source", "page", name="_source_page_uc"),)
 
     id = Column(Integer, primary_key=True)
-    source = Column(String, nullable=False, unique=True)
+    source = Column(String, nullable=False)
     page = Column(Integer)
     ocr_text = Column(Text)
     created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
@@ -345,11 +347,7 @@ class GenealogyDatabase:
         session = self.get_session()
         try:
             # Search both primary names and alternate names
-            people = (
-                session.query(Person)
-                .filter(Person.primary_name.ilike(f"%{name}%"))
-                .all()
-            )
+            people = session.query(Person).filter(Person.primary_name.ilike(f"%{name}%")).all()
 
             # Also search alternate names
             name_matches = session.query(Name).filter(Name.name.ilike(f"%{name}%")).all()
@@ -373,7 +371,6 @@ class GenealogyDatabase:
         Returns:
             Dictionary with counts of stored entities
         """
-        from src.backend.genealogy_ai.schemas import ExtractionResult
 
         people_count = 0
         events_count = 0
@@ -506,21 +503,16 @@ class GenealogyDatabase:
                     self.add_name(keep_id, name.name)
 
             # Update all events to point to kept person
-            session.query(Event).filter(Event.person_id == merge_id).update(
-                {"person_id": keep_id}
-            )
+            session.query(Event).filter(Event.person_id == merge_id).update({"person_id": keep_id})
 
             # Update all relationships
-            session.query(Relationship).filter(
-                Relationship.source_person_id == merge_id
-            ).update({"source_person_id": keep_id})
+            session.query(Relationship).filter(Relationship.source_person_id == merge_id).update(
+                {"source_person_id": keep_id}
+            )
 
-            session.query(Relationship).filter(
-                Relationship.target_person_id == merge_id
-            ).update({"target_person_id": keep_id})
-
-            # Delete the merged person's alternate names
-            session.query(Name).filter(Name.person_id == merge_id).delete()
+            session.query(Relationship).filter(Relationship.target_person_id == merge_id).update(
+                {"target_person_id": keep_id}
+            )
 
             # Delete the merged person
             session.delete(merge_person)
@@ -556,34 +548,45 @@ class GenealogyDatabase:
             document_id: ID of the document to delete
 
         Note:
-            This will cascade delete people, events, and relationships
-            that reference this document as their source.
+            This will delete ALL pages of the source document and cascade delete
+            people, events, and relationships that reference any page as their source.
         """
         session = self.get_session()
         try:
-            # Delete people that were only extracted from this document
-            people = session.query(Person).filter(
-                Person.source_document_id == document_id
-            ).all()
+            # Get the document to find its source path
+            doc = session.query(Document).filter(Document.id == document_id).first()
+            if not doc:
+                session.commit()
+                return
+
+            source_path = str(doc.source)
+
+            # Get all pages for this document
+            all_pages = session.query(Document).filter(Document.source == source_path).all()
+            all_page_ids = [page.id for page in all_pages]
+
+            # Delete people that were extracted from ANY page of this document
+            people = (
+                session.query(Person)
+                .filter(Person.source_document_id.in_(all_page_ids))
+                .all()
+            )
 
             for person in people:
                 # Delete the person (cascades to names and events)
                 session.delete(person)
 
-            # Delete events that reference this document
-            session.query(Event).filter(
-                Event.source_document_id == document_id
-            ).delete()
+            # Delete events that reference any page of this document
+            session.query(Event).filter(Event.source_document_id.in_(all_page_ids)).delete()
 
-            # Delete relationships that reference this document
+            # Delete relationships that reference any page of this document
             session.query(Relationship).filter(
-                Relationship.source_document_id == document_id
+                Relationship.source_document_id.in_(all_page_ids)
             ).delete()
 
-            # Finally, delete the document itself
-            doc = session.query(Document).filter(Document.id == document_id).first()
-            if doc:
-                session.delete(doc)
+            # Finally, delete all pages of the document
+            for page in all_pages:
+                session.delete(page)
 
             session.commit()
         except Exception as e:

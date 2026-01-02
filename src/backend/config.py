@@ -1,6 +1,12 @@
 """Backend configuration for Genealogy AI web app."""
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class Config:
@@ -9,7 +15,7 @@ class Config:
     # App settings
     DEBUG = True
     TESTING = False
-    SECRET_KEY = "dev-secret-key-change-in-production"
+    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 
     # CORS settings
     CORS_ORIGINS = [
@@ -28,8 +34,11 @@ class Config:
     OCR_OUTPUT_DIR = Path("./ocr_output")
 
     # Azure AI Document Intelligence
-    AZURE_DOCUMENT_INTELLIGENCE_KEY = None  # Set via env var
-    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = None  # Set via env var
+    AZURE_DOCUMENT_INTELLIGENCE_KEY = os.environ.get("AZURE_DOCUMENT_INTELLIGENCE_KEY")
+    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = os.environ.get("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
+
+    # OpenAI
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
     # Processing settings
     CHUNK_SIZE = 1000

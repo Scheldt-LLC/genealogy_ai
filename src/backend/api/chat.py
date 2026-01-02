@@ -49,7 +49,8 @@ async def chat() -> Response | tuple[Response, int]:
 
         # Get API key
         try:
-            api_key = settings.get_api_key()
+            # Check request body first, then settings
+            api_key = data.get("openai_key") or settings.get_api_key()
         except ValueError as e:
             return jsonify({"error": f"OpenAI API key not configured: {e!s}"}), 500
 
@@ -62,9 +63,7 @@ async def chat() -> Response | tuple[Response, int]:
         for i, doc in enumerate(relevant_docs, 1):
             source = doc.metadata.get("source", "Unknown")
             page = doc.metadata.get("page", "")
-            context_parts.append(
-                f"[Source {i}: {source}, Page {page}]\n{doc.page_content}\n"
-            )
+            context_parts.append(f"[Source {i}: {source}, Page {page}]\n{doc.page_content}\n")
 
         context = "\n".join(context_parts)
 

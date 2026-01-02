@@ -3,7 +3,6 @@
 Loads settings from environment variables and provides validated configuration.
 """
 
-import os
 from pathlib import Path
 from typing import Literal
 
@@ -33,6 +32,10 @@ class Settings(BaseSettings):
     azure_openai_endpoint: str | None = None
     azure_openai_deployment: str | None = None
 
+    # Azure AI Document Intelligence
+    azure_document_intelligence_key: str | None = None
+    azure_document_intelligence_endpoint: str | None = None
+
     # Ollama Configuration
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama2"
@@ -48,6 +51,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"
 
     def get_api_key(self) -> str:
         """Get the API key for the selected LLM provider.
@@ -68,9 +72,7 @@ class Settings(BaseSettings):
 
         if self.llm_provider == "anthropic":
             if not self.anthropic_api_key:
-                raise ValueError(
-                    "ANTHROPIC_API_KEY not set. Please add it to your .env file."
-                )
+                raise ValueError("ANTHROPIC_API_KEY not set. Please add it to your .env file.")
             return self.anthropic_api_key
 
         if self.llm_provider == "ollama":

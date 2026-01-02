@@ -22,67 +22,41 @@
   background-color: #fafafa;
 }
 
-@media (prefers-color-scheme: dark) {
-  .chat-messages {
-    background-color: #1a1a1a;
-    border-color: #333;
-  }
-  .chat-description {
-    color: #aaa;
-  }
-}
-
-.chat-empty {
-  text-align: center;
-  color: #999;
-  padding: 3rem 1rem;
-}
-
-.chat-hint {
-  font-size: 0.875rem;
-  font-style: italic;
-  margin-top: 1rem;
-}
-
 .message {
+  display: flex;
+  flex-direction: column;
   margin-bottom: 1.5rem;
-  max-width: 80%;
+  max-width: 85%;
 }
 
 .message.user {
   margin-left: auto;
+  align-items: flex-end;
 }
 
 .message.assistant {
   margin-right: auto;
+  align-items: flex-start;
 }
 
 .message-content {
-  padding: 1rem;
-  border-radius: 8px;
-  background-color: white;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-  .message-content {
-    background-color: #2d2d2d;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  }
-  .message-text {
-    color: #eee;
-  }
-  .message-sources strong {
-    color: #fff;
-  }
-  .source-item {
-    background-color: #333;
-  }
+  padding: 0.8rem 1.2rem;
+  border-radius: 18px;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .message.user .message-content {
   background-color: #646cff;
   color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.message.assistant .message-content {
+  background-color: white;
+  color: #1a1a1a;
+  border-bottom-left-radius: 4px;
+  border: 1px solid #e0e0e0;
 }
 
 .message-text {
@@ -99,11 +73,15 @@
 .message-time {
   font-size: 0.75rem;
   color: #999;
-  margin-top: 0.25rem;
-  text-align: right;
+  margin-top: 0.4rem;
+  width: 100%;
 }
 
 .message.user .message-time {
+  text-align: right;
+}
+
+.message.assistant .message-time {
   text-align: left;
 }
 
@@ -242,5 +220,68 @@
   30% {
     transform: translateY(-10px);
     opacity: 1;
+  }
+}
+
+/* Dark Mode Overrides */
+@media (prefers-color-scheme: dark) {
+  .chat-messages {
+    background-color: #1a1a1a;
+    border-color: #333;
+  }
+
+  .chat-description {
+    color: #aaa;
+  }
+
+  .message-content {
+    background-color: #2d2d2d;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    border-color: #444;
+  }
+
+  .message.user .message-content {
+    background-color: #747bff;
+  }
+
+  .message.assistant .message-content {
+    background-color: #2d2d2d;
+  }
+
+  .message-text {
+    color: #eee;
+  }
+
+  .message-sources {
+    border-top-color: #444;
+  }
+
+  .message-sources strong {
+    color: #fff;
+  }
+
+  .source-item {
+    background-color: #333;
+  }
+
+  .source-preview {
+    color: #aaa;
+  }
+
+  .chat-input {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: white;
+  }
+
+  .chat-input:disabled {
+    background-color: #1a1a1a;
+    color: #666;
+  }
+
+  .chat-error {
+    background-color: #311;
+    border-color: #622;
+    color: #f88;
   }
 }
