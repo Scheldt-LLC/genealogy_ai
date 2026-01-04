@@ -147,6 +147,103 @@ class PersonDocument(Base):
         )
 
 
+# Staging tables for entity building pipeline
+class PendingPerson(Base):
+    """Staged person entity waiting for consolidation and review."""
+
+    __tablename__ = "pending_people"
+
+    id = Column(Integer, primary_key=True)
+    extraction_batch_id = Column(String, nullable=False, index=True)  # Groups entities from same upload
+    primary_name = Column(String, nullable=False)
+    name_variants = Column(Text)  # JSON array of alternate names
+    confidence = Column(Float)
+    notes = Column(Text)
+    source_document_id = Column(Integer, ForeignKey("documents.id"))
+    family_name = Column(String, nullable=True)
+    family_side = Column(String, nullable=True)
+    status = Column(String, default="pending")  # pending, approved, rejected
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
+
+    def __repr__(self) -> str:
+        return f"<PendingPerson(id={self.id}, name='{self.primary_name}', batch='{self.extraction_batch_id}')>"
+
+
+class PendingEvent(Base):
+    """Staged event waiting for person resolution."""
+
+    __tablename__ = "pending_events"
+
+    id = Column(Integer, primary_key=True)
+    extraction_batch_id = Column(String, nullable=False, index=True)
+    pending_person_id = Column(Integer, ForeignKey("pending_people.id"), nullable=True)
+    person_name = Column(String, nullable=False)  # Name reference before person is resolved
+    event_type = Column(String, nullable=False)
+    date = Column(String)
+    place = Column(String)
+    description = Column(Text)
+    confidence = Column(Float)
+    source_document_id = Column(Integer, ForeignKey("documents.id"))
+    status = Column(String, default="pending")
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
+
+    def __repr__(self) -> str:
+        return f"<PendingEvent(id={self.id}, type='{self.event_type}', person='{self.person_name}')>"
+
+
+class PendingRelationship(Base):
+    """Staged relationship waiting for person resolution."""
+
+    __tablename__ = "pending_relationships"
+
+    id = Column(Integer, primary_key=True)
+    extraction_batch_id = Column(String, nullable=False, index=True)
+    pending_person1_id = Column(Integer, ForeignKey("pending_people.id"), nullable=True)
+    pending_person2_id = Column(Integer, ForeignKey("pending_people.id"), nullable=True)
+    person1_name = Column(String, nullable=False)  # Name references before resolution
+    person2_name = Column(String, nullable=False)
+    relationship_type = Column(String, nullable=False)
+    confidence = Column(Float)
+    notes = Column(Text)
+    source_document_id = Column(Integer, ForeignKey("documents.id"))
+    status = Column(String, default="pending")
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
+
+    def __repr__(self) -> str:
+        return (
+            f"<PendingRelationship(id={self.id}, "
+            f"type='{self.relationship_type}', "
+            f"person1='{self.person1_name}', "
+            f"person2='{self.person2_name}')>"
+        )
+
+
+class EntityMatch(Base):
+    """Proposed match between pending entities or pending→existing entities."""
+
+    __tablename__ = "entity_matches"
+
+    id = Column(Integer, primary_key=True)
+    extraction_batch_id = Column(String, nullable=False, index=True)
+    match_type = Column(String, nullable=False)  # pending_to_pending, pending_to_existing
+    pending_person_id = Column(Integer, ForeignKey("pending_people.id"), nullable=True)
+    existing_person_id = Column(Integer, ForeignKey("people.id"), nullable=True)
+    pending_person2_id = Column(Integer, ForeignKey("pending_people.id"), nullable=True)
+    confidence = Column(Float, nullable=False)
+    reasons = Column(Text)  # JSON array of match reasons
+    status = Column(String, default="pending")  # pending, approved, rejected
+    reviewed_at = Column(String, nullable=True)
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
+
+    def __repr__(self) -> str:
+        return (
+            f"<EntityMatch(id={self.id}, "
+            f"type='{self.match_type}', "
+            f"confidence={self.confidence:.2f}, "
+            f"status='{self.status}')>"
+        )
+
+
 class GenealogyDatabase:
     """Database manager for genealogical data."""
 
@@ -573,12 +670,48 @@ class GenealogyDatabase:
             if not keep_person or not merge_person:
                 raise ValueError("One or both people not found")
 
+            # Choose the most complete primary name (prefer mixed case, longer names, more words)
+            from typing import cast
+
+            keep_name = cast(str, keep_person.primary_name)
+            merge_name = cast(str, merge_person.primary_name)
+
+            def name_quality(name: str) -> tuple[int, int, int]:
+                """Score a name for quality (higher is better)."""
+                # Prefer mixed case over all caps
+                has_mixed_case = name != name.upper() and name != name.lower()
+                # Count words (more is better for full names)
+                word_count = len(name.split())
+                # Length
+                length = len(name)
+                return (1 if has_mixed_case else 0, word_count, length)
+
+            keep_score = name_quality(keep_name)
+            merge_score = name_quality(merge_name)
+
+            # If merge_person has a better name, swap them
+            if merge_score > keep_score:
+                # Save the old primary name as an alternate
+                existing_names = {n.name.lower() for n in keep_person.names}
+                if keep_name.lower() not in existing_names:
+                    self.add_name(keep_id, keep_name)
+                # Use the better name as primary
+                keep_person.primary_name = merge_name
+            else:
+                # Keep current name, add merge name as alternate
+                existing_names = {n.name.lower() for n in keep_person.names}
+                existing_names.add(cast(str, keep_person.primary_name).lower())
+                if merge_name.lower() not in existing_names:
+                    self.add_name(keep_id, merge_name)
+
             # Preserve family assignment if keep_person doesn't have one
-            if not keep_person.family_name and merge_person.family_name:
+            keep_family = cast(str | None, keep_person.family_name)
+            merge_family = cast(str | None, merge_person.family_name)
+            if not keep_family and merge_family:
                 keep_person.family_name = merge_person.family_name
                 keep_person.family_side = merge_person.family_side
 
-            # Merge alternate names
+            # Merge alternate names from merge_person
             for name in merge_person.names:
                 # Only add if not already present
                 existing_names = {n.name.lower() for n in keep_person.names}

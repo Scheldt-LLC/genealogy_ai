@@ -3,6 +3,9 @@ import './App.css'
 import Upload from './components/Upload'
 import Chat from './components/Chat'
 import Tree from './components/Tree'
+import PersonDocuments from './components/PersonDocuments'
+import FamilyManager from './components/FamilyManager'
+import EntityReview from './components/EntityReview'
 
 interface HealthResponse {
   status: string
@@ -16,7 +19,7 @@ interface ConfigResponse {
   tesseract_available: boolean
 }
 
-type Tab = 'upload' | 'chat' | 'tree'
+type Tab = 'upload' | 'chat' | 'tree' | 'documents' | 'families' | 'review'
 type Theme = 'light' | 'dark' | 'system'
 
 function App() {
@@ -154,12 +157,33 @@ function App() {
         >
           Family Tree
         </button>
+        <button
+          className={`nav-tab ${activeTab === 'documents' ? 'active' : ''}`}
+          onClick={() => setActiveTab('documents')}
+        >
+          Document Links
+        </button>
+        <button
+          className={`nav-tab ${activeTab === 'families' ? 'active' : ''}`}
+          onClick={() => setActiveTab('families')}
+        >
+          Manage Families
+        </button>
+        <button
+          className={`nav-tab ${activeTab === 'review' ? 'active' : ''}`}
+          onClick={() => setActiveTab('review')}
+        >
+          Entity Review
+        </button>
       </nav>
 
       <main>
         {activeTab === 'upload' && <Upload />}
         {activeTab === 'chat' && <Chat />}
         {activeTab === 'tree' && <Tree />}
+        {activeTab === 'documents' && <PersonDocuments />}
+        {activeTab === 'families' && <FamilyManager />}
+        {activeTab === 'review' && <EntityReview />}
       </main>
     </>
   )

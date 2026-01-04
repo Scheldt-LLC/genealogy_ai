@@ -5,6 +5,7 @@ from typing import cast
 
 from quart import Blueprint, Response, current_app, jsonify, request
 
+from src.backend.genealogy_ai.agents.reconcile_people import ReconciliationAgent
 from src.backend.genealogy_ai.storage.sqlite import Event, GenealogyDatabase, Person, Relationship
 
 tree_bp = Blueprint("tree", __name__)
@@ -129,6 +130,88 @@ async def get_tree() -> Response | tuple[Response, int]:
 
         traceback.print_exc()
         return jsonify({"error": f"Failed to get tree data: {e!s}"}), 500
+
+
+@tree_bp.route("/api/people", methods=["GET"])
+async def list_all_people() -> Response | tuple[Response, int]:
+    """Get a complete list of all people with all details.
+
+    Returns:
+        JSON with list of people (id, primary_name, birth_year, death_year, family_name, family_side)
+    """
+    try:
+        db_path = Path(current_app.config.get("DB_PATH", "./genealogy.db"))
+        db = GenealogyDatabase(db_path=db_path)
+        session = db.get_session()
+
+        try:
+            people = session.query(Person).all()
+
+            people_list = []
+            for person in people:
+                # Get birth year
+                birth_event = (
+                    session.query(Event)
+                    .filter(Event.person_id == person.id, Event.event_type == "birth")
+                    .first()
+                )
+                birth_year = None
+                if birth_event is not None:
+                    date_str = cast(str | None, birth_event.date)
+                    if date_str:
+                        try:
+                            year_part = date_str.split("-")[0]
+                            birth_year = int(year_part) if year_part.isdigit() else None
+                        except Exception:
+                            pass
+
+                # Get death year
+                death_event = (
+                    session.query(Event)
+                    .filter(Event.person_id == person.id, Event.event_type == "death")
+                    .first()
+                )
+                death_year = None
+                if death_event is not None:
+                    date_str = cast(str | None, death_event.date)
+                    if date_str:
+                        try:
+                            year_part = date_str.split("-")[0]
+                            death_year = int(year_part) if year_part.isdigit() else None
+                        except Exception:
+                            pass
+
+                people_list.append(
+                    {
+                        "id": person.id,
+                        "primary_name": person.primary_name,
+                        "birth_year": birth_year,
+                        "death_year": death_year,
+                        "family_name": person.family_name,
+                        "family_side": person.family_side,
+                    }
+                )
+
+            # Sort by family, then birth year, then name
+            people_list.sort(
+                key=lambda x: (x["family_name"] or "zzz", x["birth_year"] or 9999, x["primary_name"])
+            )
+
+            return jsonify(
+                {
+                    "success": True,
+                    "people": people_list,
+                }
+            ), 200
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to list people: {e!s}"}), 500
 
 
 @tree_bp.route("/api/tree/people", methods=["GET"])
@@ -293,18 +376,19 @@ async def get_person_documents(person_id: int) -> Response | tuple[Response, int
 
         documents = db.get_person_documents(person_id=person_id, link_type=link_type)
 
-        documents_data = [
-            {
-                "document_id": doc["document_id"],
-                "link_type": doc["link_type"],
-                "notes": doc["notes"],
-                "source": doc["source"],
-                "page": doc["page"],
-                "document_type": doc["document_type"],
-                "created_at": doc["created_at"],
-            }
-            for doc in documents
-        ]
+        documents_data = []
+        for document, person_document in documents:
+            documents_data.append(
+                {
+                    "document_id": document.id,
+                    "link_type": person_document.link_type,
+                    "notes": person_document.notes,
+                    "source": document.source,
+                    "page": document.page,
+                    "document_type": document.document_type,
+                    "created_at": person_document.created_at,
+                }
+            )
 
         return jsonify(
             {
@@ -410,3 +494,70 @@ async def unlink_document_from_person(
 
         traceback.print_exc()
         return jsonify({"error": f"Failed to unlink document: {e!s}"}), 500
+
+
+@tree_bp.route("/api/reconcile", methods=["POST"])
+async def reconcile_duplicates() -> Response | tuple[Response, int]:
+    """Manually trigger reconciliation to find and merge duplicate people.
+
+    Query parameters:
+        - min_confidence: Minimum confidence threshold (default 1.0 for exact matches only)
+        - auto_merge: Whether to auto-merge matches (default true)
+
+    Returns:
+        JSON with reconciliation results
+    """
+    try:
+        # Get optional parameters
+        min_confidence = request.args.get("min_confidence", default=1.0, type=float)
+        auto_merge = request.args.get("auto_merge", default="true", type=str).lower() == "true"
+
+        db_path = Path(current_app.config.get("DB_PATH", "./genealogy.db"))
+        db = GenealogyDatabase(db_path=db_path)
+
+        # Find duplicates
+        agent = ReconciliationAgent(db=db, min_confidence=0.6)
+        candidates = agent.find_duplicates()
+
+        # Filter by confidence threshold
+        filtered_candidates = [c for c in candidates if c.confidence >= min_confidence]
+
+        duplicates_merged = 0
+        skipped = 0
+        errors = []
+
+        # Auto-merge if requested
+        if auto_merge:
+            for candidate in filtered_candidates:
+                try:
+                    db.merge_people(
+                        keep_id=candidate.person1_id, merge_id=candidate.person2_id
+                    )
+                    duplicates_merged += 1
+                except ValueError as ve:
+                    # Person may have already been merged
+                    skipped += 1
+                    print(f"Skipping merge (person already merged): {ve!s}")
+                except Exception as e:
+                    errors.append(
+                        f"Failed to merge {candidate.person1_id} and {candidate.person2_id}: {e!s}"
+                    )
+
+        return jsonify(
+            {
+                "success": True,
+                "candidates_found": len(candidates),
+                "candidates_above_threshold": len(filtered_candidates),
+                "duplicates_merged": duplicates_merged,
+                "skipped": skipped,
+                "errors": errors,
+                "min_confidence": min_confidence,
+                "auto_merge": auto_merge,
+            }
+        ), 200
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to reconcile: {e!s}"}), 500

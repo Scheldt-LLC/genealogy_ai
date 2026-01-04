@@ -5,8 +5,8 @@ from pathlib import Path
 from quart import Blueprint, Response, current_app, jsonify, request
 from werkzeug.utils import secure_filename
 
+from src.backend.genealogy_ai.agents.build_entities import EntityBuilder, generate_batch_id
 from src.backend.genealogy_ai.agents.extract_entities import EntityExtractor
-from src.backend.genealogy_ai.agents.reconcile_people import ReconciliationAgent
 from src.backend.genealogy_ai.ingestion.chunking import DocumentChunker
 from src.backend.genealogy_ai.ingestion.ocr import OCRProcessor
 from src.backend.genealogy_ai.storage.chroma import ChromaStore
@@ -128,14 +128,21 @@ async def upload_file() -> Response | tuple[Response, int]:
                 if document_type and doc.id:
                     db.update_document_type(document_id=doc.id, document_type=document_type)
 
-        # Step 3: Entity Extraction
-        total_people = 0
-        total_events = 0
-        total_relationships = 0
+        # Step 3: Entity Extraction and Staging (NEW PIPELINE)
+        total_staged = 0
+        auto_approved = 0
+        needs_review = 0
+        review_ids: list[int] = []
 
         try:
-            extractor = EntityExtractor(api_key=openai_key)
+            # Generate unique batch ID for this upload
+            batch_id = generate_batch_id()
 
+            # Initialize extractor and builder
+            extractor = EntityExtractor(api_key=openai_key)
+            builder = EntityBuilder(db=db, auto_approve_threshold=0.95)
+
+            # Extract entities from all pages and stage them
             for ocr_result, doc_id in zip(ocr_results, document_ids, strict=True):
                 # Extract entities from this page
                 extraction_result = extractor.extract(
@@ -144,43 +151,30 @@ async def upload_file() -> Response | tuple[Response, int]:
                     page=ocr_result.page_number,
                 )
 
-                # Store extraction results
+                # Stage extraction results (don't insert to DB yet)
                 if not extraction_result.is_empty():
-                    counts = db.store_extraction(
+                    counts = builder.stage_extraction(
                         extraction_result,
-                        doc_id,
+                        batch_id=batch_id,
+                        document_id=doc_id,
                         family_name=family_name,
                         family_side=family_side,
                     )
-                    total_people += counts["people"]
-                    total_events += counts["events"]
-                    total_relationships += counts["relationships"]
+                    total_staged += counts["people"]
+
+            # Step 4: Consolidate, match, and auto-approve high-confidence matches
+            if total_staged > 0:
+                processing_result = builder.process_batch(batch_id, auto_approve=True)
+                auto_approved = processing_result["auto_approved"]
+                needs_review = processing_result["needs_review"]
+                review_ids = processing_result["review_ids"]  # type: ignore[assignment]
 
         except Exception as e:
             # Log extraction error but don't fail the upload
             import traceback
 
             traceback.print_exc()
-            print(f"Entity extraction failed: {e!s}")
-
-        # Step 4: Reconciliation (auto-approve 100% matches)
-        duplicates_merged = 0
-        try:
-            agent = ReconciliationAgent(db=db, min_confidence=0.6)
-            candidates = agent.find_duplicates()
-
-            # Auto-merge exact matches (100% confidence)
-            for candidate in candidates:
-                if candidate.confidence >= 1.0:
-                    db.merge_people(keep_id=candidate.person1_id, merge_id=candidate.person2_id)
-                    duplicates_merged += 1
-
-        except Exception as e:
-            # Log reconciliation error but don't fail the upload
-            import traceback
-
-            traceback.print_exc()
-            print(f"Reconciliation failed: {e!s}")
+            print(f"Entity extraction/staging failed: {e!s}")
 
         # Step 5: Chunk and add to vector database
         total_chunks = 0
@@ -210,14 +204,16 @@ async def upload_file() -> Response | tuple[Response, int]:
                 "document_type": document_type,
                 "family_name": family_name,
                 "family_side": family_side,
-                "entities_extracted": {
-                    "people": total_people,
-                    "events": total_events,
-                    "relationships": total_relationships,
-                },
-                "duplicates_merged": duplicates_merged,
+                "entities_staged": total_staged,
+                "entities_auto_approved": auto_approved,
+                "entities_needs_review": needs_review,
+                "review_ids": review_ids,
                 "chunks_stored": total_chunks,
-                "message": "File uploaded and fully processed successfully",
+                "message": (
+                    "File uploaded and processed successfully. "
+                    f"{auto_approved} entities auto-approved, "
+                    f"{needs_review} need review."
+                ),
             }
         ), 201
 

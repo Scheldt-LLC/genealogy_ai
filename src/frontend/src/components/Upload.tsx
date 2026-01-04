@@ -63,6 +63,14 @@ export default function Upload() {
   const [selectedFamily, setSelectedFamily] = useState<string>('')
   const [newFamilyName, setNewFamilyName] = useState<string>('')
   const [familySide, setFamilySide] = useState<string>('')
+  const [reprocessing, setReprocessing] = useState(false)
+  const [reprocessSuccess, setReprocessSuccess] = useState<string | null>(null)
+  const [reprocessProgress, setReprocessProgress] = useState<{
+    current: number
+    total: number
+    filename?: string
+    stage?: string
+  } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchDocuments = async () => {
@@ -313,6 +321,119 @@ export default function Upload() {
       setError('Failed to delete document: ' + (err as Error).message)
     } finally {
       setDeleting(null)
+    }
+  }
+
+  const handleReprocess = async () => {
+    if (
+      !window.confirm(
+        'Reprocess all documents with the new entity extraction pipeline? This will extract entities from all existing OCR results without re-running OCR.'
+      )
+    ) {
+      return
+    }
+
+    setReprocessing(true)
+    setError(null)
+    setSuccess(null)
+    setReprocessSuccess(null)
+    setReprocessProgress(null)
+
+    try {
+      // Get family info if selected
+      const familyToAssign = selectedFamily === 'new' ? newFamilyName : selectedFamily
+
+      // Use EventSource for SSE progress updates
+      const params = new URLSearchParams()
+      const eventSource = new EventSource(
+        `/api/documents/reprocess?${params.toString()}`
+      )
+
+      // First send the POST data via fetch to initiate
+      fetch('/api/documents/reprocess', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify({
+          family_name: familyToAssign || undefined,
+          family_side: familySide || undefined,
+        }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Failed to start reprocessing')
+          }
+
+          // Read the stream
+          const reader = response.body?.getReader()
+          const decoder = new TextDecoder()
+
+          const readStream = () => {
+            reader?.read().then(({ done, value }) => {
+              if (done) {
+                setReprocessing(false)
+                setReprocessProgress(null)
+                return
+              }
+
+              const chunk = decoder.decode(value, { stream: true })
+              const lines = chunk.split('\n')
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6))
+
+                    if (data.type === 'start') {
+                      setReprocessProgress({
+                        current: 0,
+                        total: data.total,
+                        stage: 'starting',
+                      })
+                    } else if (data.type === 'progress') {
+                      setReprocessProgress({
+                        current: data.current,
+                        total: data.total,
+                        filename: data.filename,
+                      })
+                    } else if (data.type === 'consolidating') {
+                      setReprocessProgress((prev) => ({
+                        ...prev!,
+                        stage: 'consolidating',
+                      }))
+                    } else if (data.type === 'complete') {
+                      setReprocessSuccess(
+                        `✓ Reprocessed ${data.documents_processed} documents! ` +
+                          `${data.entities_auto_approved} entities auto-approved, ` +
+                          `${data.entities_needs_review} need review.`
+                      )
+                      setTimeout(() => setReprocessSuccess(null), 10000)
+                      setReprocessing(false)
+                      setReprocessProgress(null)
+                    }
+                  } catch (e) {
+                    console.error('Failed to parse SSE data:', e)
+                  }
+                }
+              }
+
+              readStream()
+            })
+          }
+
+          readStream()
+        })
+        .catch((err) => {
+          setError('Failed to reprocess documents: ' + err.message)
+          setReprocessing(false)
+          setReprocessProgress(null)
+        })
+    } catch (err) {
+      setError('Failed to reprocess documents: ' + (err as Error).message)
+      setReprocessing(false)
+      setReprocessProgress(null)
     }
   }
 
@@ -597,6 +718,61 @@ export default function Upload() {
           )}
         </div>
       </div>
+
+      {/* Reprocess Existing Documents */}
+      {documents.length > 0 && (
+        <div className="reprocess-section">
+          <div className="reprocess-info">
+            <p className="reprocess-title">
+              📚 Reprocess Existing Documents ({documents.length})
+            </p>
+            <p className="reprocess-description">
+              Run the new entity extraction pipeline on all {documents.length} documents without
+              re-uploading or re-running OCR. Uses the stored OCR text to extract and consolidate
+              entities.
+            </p>
+
+            {reprocessProgress && (
+              <div className="reprocess-progress-container">
+                {reprocessProgress.stage === 'consolidating' ? (
+                  <div className="progress-status">
+                    <p className="progress-text">
+                      🔄 Consolidating entities and finding matches...
+                    </p>
+                    <div className="progress-spinner"></div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="progress-bar-container">
+                      <div
+                        className="progress-bar-fill"
+                        style={{
+                          width: `${(reprocessProgress.current / reprocessProgress.total) * 100}%`,
+                        }}
+                      ></div>
+                    </div>
+                    <p className="progress-text">
+                      Processing {reprocessProgress.current} of {reprocessProgress.total}
+                      {reprocessProgress.filename && `: ${reprocessProgress.filename}`}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          <button
+            className="reprocess-button"
+            onClick={handleReprocess}
+            disabled={reprocessing || uploading}
+          >
+            {reprocessing ? '⚙️ Reprocessing...' : '🔄 Reprocess All Documents'}
+          </button>
+        </div>
+      )}
+
+      {reprocessSuccess && (
+        <div className="success-message reprocess-success">{reprocessSuccess}</div>
+      )}
 
       {/* Upload Queue Progress */}
       {uploadQueue.length > 0 && (

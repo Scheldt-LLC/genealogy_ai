@@ -1,9 +1,12 @@
 """Document API endpoints."""
 
+import json
 from pathlib import Path
 
 from quart import Blueprint, Response, current_app, jsonify, request, send_file
 
+from src.backend.genealogy_ai.agents.build_entities import EntityBuilder, generate_batch_id
+from src.backend.genealogy_ai.agents.extract_entities import EntityExtractor
 from src.backend.genealogy_ai.ingestion.chunking import DocumentChunker, OCRResult
 from src.backend.genealogy_ai.storage.chroma import ChromaStore
 from src.backend.genealogy_ai.storage.sqlite import Document, GenealogyDatabase
@@ -405,3 +408,140 @@ async def get_document_people(document_id: int) -> Response | tuple[Response, in
 
         traceback.print_exc()
         return jsonify({"error": f"Failed to get document people: {e!s}"}), 500
+
+
+@documents_bp.route("/api/documents/reprocess", methods=["POST"])
+async def reprocess_documents() -> Response | tuple[Response, int]:
+    """Reprocess existing documents with entity extraction (with SSE progress).
+
+    This endpoint streams progress updates using Server-Sent Events.
+
+    Request body (JSON):
+        - document_ids: Optional list of specific document IDs to reprocess
+        - openai_key: Optional OpenAI API key override
+        - family_name: Optional family name to assign to extracted people
+        - family_side: Optional family side (maternal/paternal)
+        - auto_approve_threshold: Optional threshold for auto-approval (default 0.95)
+
+    Returns:
+        Server-Sent Events stream with progress updates
+    """
+    # Get request data outside the generator (where we have access to the request context)
+    data = await request.get_json() or {}
+    document_ids = data.get("document_ids")
+    openai_key = data.get("openai_key") or current_app.config.get("OPENAI_API_KEY")
+    family_name = data.get("family_name")
+    family_side = data.get("family_side")
+    auto_approve_threshold = data.get("auto_approve_threshold", 0.95)
+
+    # Get config values outside generator
+    db_path = Path(current_app.config.get("DB_PATH", "./genealogy.db"))
+
+    async def generate():
+        try:
+            db = GenealogyDatabase(db_path=db_path)
+            session = db.get_session()
+
+            try:
+                # Get documents to reprocess
+                if document_ids:
+                    documents = session.query(Document).filter(Document.id.in_(document_ids)).all()
+                else:
+                    documents = session.query(Document).all()
+
+                if not documents:
+                    yield f"event: error\ndata: {json.dumps({'error': 'No documents found'})}\n\n"
+                    return
+
+                # Filter out documents without OCR text
+                documents_with_ocr = [doc for doc in documents if doc.ocr_text]
+
+                if not documents_with_ocr:
+                    yield f"event: error\ndata: {json.dumps({'error': 'No documents with OCR text found'})}\n\n"
+                    return
+
+                total_documents = len(documents_with_ocr)
+
+                # Send initial progress
+                yield f"data: {json.dumps({'type': 'start', 'total': total_documents})}\n\n"
+
+                # Initialize extractor and builder
+                extractor = EntityExtractor(api_key=openai_key)
+                builder = EntityBuilder(db=db, auto_approve_threshold=auto_approve_threshold)
+
+                # Generate unique batch ID
+                batch_id = generate_batch_id()
+
+                # Track results
+                total_staged = 0
+                failed_documents = []
+
+                # Process each document
+                for idx, doc in enumerate(documents_with_ocr, 1):
+                    try:
+                        # Send progress update
+                        yield f"data: {json.dumps({'type': 'progress', 'current': idx, 'total': total_documents, 'filename': Path(doc.source).name})}\n\n"
+
+                        # Extract entities
+                        extraction_result = extractor.extract(
+                            text=doc.ocr_text,
+                            source=doc.source,
+                            page=doc.page or 1,
+                        )
+
+                        # Stage extraction results
+                        if not extraction_result.is_empty():
+                            counts = builder.stage_extraction(
+                                extraction_result,
+                                batch_id=batch_id,
+                                document_id=doc.id,
+                                family_name=family_name,
+                                family_side=family_side,
+                            )
+                            total_staged += counts["people"]
+
+                    except Exception as e:
+                        import traceback
+
+                        traceback.print_exc()
+                        failed_documents.append(
+                            {
+                                "document_id": doc.id,
+                                "source": doc.source,
+                                "error": str(e),
+                            }
+                        )
+
+                # Consolidate and match
+                yield f"data: {json.dumps({'type': 'consolidating'})}\n\n"
+
+                auto_approved = 0
+                needs_review = 0
+                review_ids = []
+
+                if total_staged > 0:
+                    processing_result = builder.process_batch(batch_id, auto_approve=True)
+                    auto_approved = processing_result["auto_approved"]
+                    needs_review = processing_result["needs_review"]
+                    review_ids = processing_result["review_ids"]  # type: ignore[assignment]
+
+                # Send completion
+                yield f"data: {json.dumps({'type': 'complete', 'batch_id': batch_id, 'documents_processed': total_documents, 'documents_failed': len(failed_documents), 'entities_staged': total_staged, 'entities_auto_approved': auto_approved, 'entities_needs_review': needs_review, 'review_ids': review_ids, 'failed_documents': failed_documents})}\n\n"
+
+            finally:
+                session.close()
+
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
